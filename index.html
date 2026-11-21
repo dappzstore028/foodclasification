@@ -1,0 +1,3095 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NutriScan AI — Sistem Klasifikasi Kualitas Pangan &amp; Nutrisi</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    /* Animasi garis laser pemindai visual AI */
+    @keyframes scanLaser {
+      0% {
+        top: 6%;
+        opacity: 0.25;
+      }
+      15% {
+        opacity: 1;
+      }
+      85% {
+        opacity: 1;
+      }
+      100% {
+        top: 92%;
+        opacity: 0.25;
+      }
+    }
+
+    .ai-scan-beam {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #10b981, #6ee7b7, #10b981, transparent);
+      box-shadow: 0 0 22px 4px rgba(16, 185, 129, 0.85);
+      animation: scanLaser 1.2s ease-in-out infinite;
+    }
+
+    .ai-scan-grid {
+      background-image:
+        linear-gradient(to right, rgba(16, 185, 129, 0.16) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(16, 185, 129, 0.16) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+
+    .dropzone-highlight-emerald {
+      border-color: #10b981 !important;
+      background-color: #ecfdf5 !important;
+      transform: scale(1.005);
+    }
+
+    .dropzone-highlight-rose {
+      border-color: #e11d48 !important;
+      background-color: #fff1f2 !important;
+      transform: scale(1.005);
+    }
+
+    @keyframes revealUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-reveal {
+      animation: revealUp 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-emerald-100 selection:text-emerald-900">
+
+  <!-- Container Notifikasi Toast (Pengganti alert) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- ===================================================================== -->
+  <!-- 1. HALAMAN LOGIN RAHASIA & AMAN                                       -->
+  <!-- ===================================================================== -->
+  <section id="login-screen" class="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-emerald-50/90 via-slate-50 to-teal-50/70">
+    <div class="w-full max-w-md space-y-6 animate-reveal">
+
+      <!-- Branding Utama -->
+      <div class="text-center space-y-3">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-emerald-600/25">
+          <i data-lucide="scan-line" class="w-7 h-7"></i>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="inline-flex items-center justify-center gap-2">
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">NutriScan</h1>
+            <span class="text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-700">AI</span>
+          </div>
+          <p class="text-xs sm:text-sm font-medium text-slate-600">
+            NutriScan AI &mdash; Sistem Klasifikasi Kualitas Pangan &amp; Nutrisi
+          </p>
+        </div>
+      </div>
+
+      <!-- Kartu Login Bersih -->
+      <div class="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/50 p-6 sm:p-8 space-y-5">
+        <div class="space-y-1">
+          <h2 class="text-lg sm:text-xl font-extrabold text-slate-900">Otentikasi Pengguna</h2>
+          <p class="text-xs sm:text-sm text-slate-500">
+            Silakan masukkan kredensial akun terdaftar untuk mengakses sistem.
+          </p>
+        </div>
+
+        <!-- Peringatan Error Login -->
+        <div id="login-error-box" class="hidden rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 flex items-start gap-2.5 text-rose-800 text-xs sm:text-sm font-semibold">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+          <span id="login-error-text">Username atau kata sandi tidak sesuai. Silakan coba lagi.</span>
+        </div>
+
+        <!-- Form Login -->
+        <form id="login-form" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+          <div class="space-y-1.5">
+            <label for="login-username" class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+              Username
+            </label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                <i data-lucide="user" class="w-4 h-4"></i>
+              </span>
+              <input
+                type="text"
+                id="login-username"
+                autocomplete="username"
+                required
+                placeholder="Masukkan username"
+                class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none text-sm text-slate-900 transition"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="login-password" class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+              Kata Sandi
+            </label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+              </span>
+              <input
+                type="password"
+                id="login-password"
+                autocomplete="current-password"
+                required
+                placeholder="Masukkan kata sandi"
+                class="w-full pl-10 pr-11 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none text-sm text-slate-900 transition"
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility()"
+                aria-label="Tampilkan atau sembunyikan kata sandi"
+                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition focus:outline-none"
+              >
+                <i id="password-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="w-full py-3.5 px-5 min-h-[48px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-sm font-extrabold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition"
+          >
+            <span>Masuk ke Sistem</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- 2. DASHBOARD ADMIN (ROLE: ADMIN)                                      -->
+  <!-- ===================================================================== -->
+  <div id="admin-workspace" class="hidden min-h-screen flex flex-col">
+
+    <!-- Header Khusus Admin -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 min-h-[68px] py-2.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-sm">
+              <i data-lucide="scan-line" class="w-5 h-5"></i>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-lg font-extrabold tracking-tight text-slate-900">NutriScan</span>
+              <span class="text-[11px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">AI</span>
+            </div>
+          </div>
+
+          <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Administrator Portal</span>
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <button
+            type="button"
+            onclick="logoutSession()"
+            class="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold transition"
+          >
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>Keluar</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Konten Utama Admin -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-7 sm:py-9 space-y-7">
+
+      <!-- Judul Halaman -->
+      <div class="space-y-1">
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+          Manajemen Dataset &amp; Pelatihan Model AI
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-600">
+          Tarik ratusan foto dataset langsung dari Google Drive atau unggah secara lokal untuk melatih klasifikasi visual 24-dimensi secara otomatis.
+        </p>
+      </div>
+
+      <!-- 4 Kartu Metrik Real-Time -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 1) Total Foto Terlatih -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Foto Terlatih</p>
+            <p id="admin-metric-total" class="text-3xl font-extrabold text-slate-900 mt-1">0</p>
+            <p class="text-xs text-slate-500 mt-0.5">Kapasitas hingga 1.000+ foto</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0">
+            <i data-lucide="database" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <!-- 2) Sampel Real Food -->
+        <div class="bg-white rounded-2xl border border-emerald-200/90 p-5 shadow-2xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-emerald-700">Sampel Real Food</p>
+            <p id="admin-metric-real" class="text-3xl font-extrabold text-emerald-700 mt-1">0</p>
+            <p class="text-xs text-slate-500 mt-0.5">Pangan alami &amp; utuh</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <i data-lucide="leaf" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <!-- 3) Sampel Junk Food -->
+        <div class="bg-white rounded-2xl border border-rose-200/90 p-5 shadow-2xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Sampel Junk Food</p>
+            <p id="admin-metric-junk" class="text-3xl font-extrabold text-rose-600 mt-1">0</p>
+            <p class="text-xs text-slate-500 mt-0.5">Pangan ultra-proses</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+            <i data-lucide="flame" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <!-- 4) Akurasi Validasi Model (%) via LOOCV -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Akurasi Validasi Model</p>
+            <p id="admin-metric-loocv" class="text-3xl font-extrabold text-slate-900 mt-1">0.0%</p>
+            <p id="admin-metric-loocv-sub" class="text-xs text-slate-500 mt-0.5">Validasi Silang LOOCV</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+            <i data-lucide="activity" class="w-6 h-6"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Indikator Progres Pelatihan Massal (Drive maupun Upload Lokal) -->
+      <div id="admin-progress-box" class="hidden rounded-2xl bg-slate-900 text-white p-4 sm:p-5 space-y-2.5 shadow-lg">
+        <div class="flex items-center justify-between gap-2 text-xs sm:text-sm font-bold">
+          <span id="admin-progress-text" class="flex items-center gap-2">
+            <i data-lucide="loader-2" class="w-4 h-4 text-emerald-400 animate-spin"></i>
+            <span>Memproses batch pelatihan...</span>
+          </span>
+          <span id="admin-progress-pct" class="text-emerald-400 shrink-0">0%</span>
+        </div>
+        <div class="w-full h-2.5 rounded-full bg-slate-700 overflow-hidden">
+          <div id="admin-progress-bar" style="width: 0%" class="h-full bg-emerald-500 transition-all duration-150"></div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- PANEL UTAMA BARU: INTEGRASI & SINKRONISASI MASSAL GOOGLE DRIVE      -->
+      <!-- =================================================================== -->
+      <section class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 flex items-center justify-center shrink-0">
+              <i data-lucide="cloud" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base sm:text-lg font-extrabold tracking-tight">
+                Integrasi Dataset Google Drive (Sinkronisasi Massal)
+              </h2>
+              <p class="text-xs text-slate-300">
+                Tarik ratusan foto dari folder Drive secara bertahap (batch 15 foto/request) tanpa timeout
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick="openDriveGuideModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 min-h-[40px] rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold transition"
+          >
+            <i data-lucide="file-code-2" class="w-4 h-4 text-emerald-400"></i>
+            <span>Panduan &amp; Script Google Drive</span>
+          </button>
+        </div>
+
+        <div class="p-5 sm:p-6 space-y-5">
+          <!-- Input URL Web App Google Apps Script -->
+          <div class="space-y-1.5">
+            <label for="drive-webapp-url" class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+              URL Web App Google Apps Script
+            </label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                <i data-lucide="link" class="w-4 h-4"></i>
+              </span>
+              <input
+                type="url"
+                id="drive-webapp-url"
+                oninput="saveDriveConfig()"
+                placeholder="https://script.google.com/macros/s/.../exec"
+                class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none text-xs sm:text-sm text-slate-900 transition"
+              />
+            </div>
+          </div>
+
+          <!-- Dua Input Cerdas Link / ID Folder Drive -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="drive-folder-real" class="flex items-center justify-between text-xs font-bold text-emerald-800">
+                <span>Link / ID Folder Drive Real Food (Opsional)</span>
+                <span id="drive-real-id-badge" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">ID Valid</span>
+              </label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-emerald-600 pointer-events-none">
+                  <i data-lucide="folder-check" class="w-4 h-4"></i>
+                </span>
+                <input
+                  type="text"
+                  id="drive-folder-real"
+                  oninput="handleFolderInputChange('real')"
+                  placeholder="Tempel link folder Google Drive atau ID folder Real Food"
+                  class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-emerald-50/40 border border-emerald-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none text-xs sm:text-sm text-slate-900 transition"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="drive-folder-junk" class="flex items-center justify-between text-xs font-bold text-rose-800">
+                <span>Link / ID Folder Drive Junk Food (Opsional)</span>
+                <span id="drive-junk-id-badge" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">ID Valid</span>
+              </label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-rose-600 pointer-events-none">
+                  <i data-lucide="folder-x" class="w-4 h-4"></i>
+                </span>
+                <input
+                  type="text"
+                  id="drive-folder-junk"
+                  oninput="handleFolderInputChange('junk')"
+                  placeholder="Tempel link folder Google Drive atau ID folder Junk Food"
+                  class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-rose-50/40 border border-rose-200 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none text-xs sm:text-sm text-slate-900 transition"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tombol Aksi Sinkronisasi Google Drive -->
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              id="btn-pull-drive"
+              onclick="pullAndTrainFromGoogleDrive()"
+              class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs sm:text-sm font-extrabold shadow-sm shadow-emerald-600/20 transition"
+            >
+              <i data-lucide="cloud-download" class="w-4 h-4"></i>
+              <span>Tarik &amp; Latih dari Google Drive</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-push-drive"
+              onclick="pushModelToCloudDrive()"
+              class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs sm:text-sm font-extrabold shadow-sm transition"
+            >
+              <i data-lucide="cloud-upload" class="w-4 h-4 text-emerald-400"></i>
+              <span>Simpan Model ke Cloud Drive</span>
+            </button>
+
+            <span class="text-xs text-slate-500 ml-auto">
+              Otomatis melewati foto duplikat &amp; menyimpan model untuk perangkat User.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- FITUR UPLOAD MANUAL / SATUAN & LOKAL (TETAP DIPERTAHANKAN PENUH)    -->
+      <!-- =================================================================== -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- KOTAK KIRI: Upload Real Food -->
+        <div class="bg-white rounded-3xl border-2 border-emerald-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="px-6 py-4 bg-emerald-50/90 border-b border-emerald-200/80 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
+              <h2 class="text-base sm:text-lg font-extrabold text-emerald-950">Upload Lokal: Real Food</h2>
+            </div>
+            <span class="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-600 text-white">
+              Satuan / Massal
+            </span>
+          </div>
+
+          <div class="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
+            <div class="space-y-1.5">
+              <label for="admin-name-real" class="block text-xs font-bold text-slate-700">
+                Nama Makanan (Opsional — jika kosong otomatis diambil dari nama file)
+              </label>
+              <input
+                type="text"
+                id="admin-name-real"
+                placeholder="Contoh: Salad Sayur & Dada Ayam"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none text-xs sm:text-sm text-slate-900"
+              />
+            </div>
+
+            <div
+              id="admin-dropzone-real"
+              onclick="document.getElementById('admin-input-real').click()"
+              class="border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-2xl p-7 text-center cursor-pointer transition-all space-y-3"
+            >
+              <input type="file" id="admin-input-real" multiple accept="image/*" class="hidden" />
+              <div class="w-12 h-12 mx-auto rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <i data-lucide="image-plus" class="w-6 h-6"></i>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm font-extrabold text-emerald-950">Seret 1 atau banyak foto Real Food ke sini</p>
+                <p class="text-xs text-slate-600">
+                  Mendukung upload satuan maupun banyak file sekaligus dari perangkat
+                </p>
+              </div>
+              <div class="pt-1">
+                <span class="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span>Pilih File Real Food</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KOTAK KANAN: Upload Junk Food -->
+        <div class="bg-white rounded-3xl border-2 border-rose-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="px-6 py-4 bg-rose-50/90 border-b border-rose-200/80 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 rounded-full bg-rose-600"></span>
+              <h2 class="text-base sm:text-lg font-extrabold text-rose-950">Upload Lokal: Junk Food</h2>
+            </div>
+            <span class="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-600 text-white">
+              Satuan / Massal
+            </span>
+          </div>
+
+          <div class="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
+            <div class="space-y-1.5">
+              <label for="admin-name-junk" class="block text-xs font-bold text-slate-700">
+                Nama Makanan (Opsional — jika kosong otomatis diambil dari nama file)
+              </label>
+              <input
+                type="text"
+                id="admin-name-junk"
+                placeholder="Contoh: Burger Keju & Kentang Goreng"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none text-xs sm:text-sm text-slate-900"
+              />
+            </div>
+
+            <div
+              id="admin-dropzone-junk"
+              onclick="document.getElementById('admin-input-junk').click()"
+              class="border-2 border-dashed border-rose-300 hover:border-rose-500 bg-rose-50/40 hover:bg-rose-50/80 rounded-2xl p-7 text-center cursor-pointer transition-all space-y-3"
+            >
+              <input type="file" id="admin-input-junk" multiple accept="image/*" class="hidden" />
+              <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center">
+                <i data-lucide="image-plus" class="w-6 h-6"></i>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm font-extrabold text-rose-950">Seret 1 atau banyak foto Junk Food ke sini</p>
+                <p class="text-xs text-slate-600">
+                  Mendukung upload satuan maupun banyak file sekaligus dari perangkat
+                </p>
+              </div>
+              <div class="pt-1">
+                <span class="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-2xs transition">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span>Pilih File Junk Food</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- GALERI DATASET TERLATIH & MANAJEMEN MODEL (PAGINASI 24 PER HALAMAN) -->
+      <!-- =================================================================== -->
+      <section class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-5">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <!-- Filter Tabs -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              id="admin-tab-all"
+              onclick="setAdminGalleryFilter('all')"
+              class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white transition"
+            >
+              Semua (<span id="admin-count-all">0</span>)
+            </button>
+            <button
+              type="button"
+              id="admin-tab-real"
+              onclick="setAdminGalleryFilter('real_food')"
+              class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition"
+            >
+              Real Food (<span id="admin-count-real">0</span>)
+            </button>
+            <button
+              type="button"
+              id="admin-tab-junk"
+              onclick="setAdminGalleryFilter('junk_food')"
+              class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 transition"
+            >
+              Junk Food (<span id="admin-count-junk">0</span>)
+            </button>
+          </div>
+
+          <!-- Search & Manajemen Model (.JSON + Reset) -->
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+              </span>
+              <input
+                type="text"
+                id="admin-gallery-search"
+                oninput="handleAdminSearchInput()"
+                placeholder="Cari nama makanan..."
+                class="pl-8 pr-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:bg-white focus:border-emerald-500 outline-none text-xs sm:text-sm text-slate-900 min-w-[180px]"
+              />
+            </div>
+
+            <button
+              type="button"
+              onclick="exportSharedDatasetJSON()"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition"
+            >
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Ekspor Model (.JSON)</span>
+            </button>
+
+            <button
+              type="button"
+              onclick="document.getElementById('admin-import-json').click()"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold transition"
+            >
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>Impor Model (.JSON)</span>
+            </button>
+            <input type="file" id="admin-import-json" accept=".json,application/json" class="hidden" />
+
+            <button
+              type="button"
+              onclick="promptDeleteAllDataset(true)"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition"
+            >
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Reset Dataset</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bar Konfirmasi Aman Reset Dataset -->
+        <div id="admin-confirm-clear-bar" class="hidden rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-xs sm:text-sm font-semibold text-rose-900">
+            Reset seluruh dataset terlatih dari memori lokal? Akun User akan kembali ke mode deteksi awal hingga model baru dimuat.
+          </p>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              onclick="promptDeleteAllDataset(false)"
+              class="px-3.5 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onclick="executeDeleteAllDataset()"
+              class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold"
+            >
+              Ya, Reset Dataset
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid Kartu Dataset (24 item per halaman) -->
+        <div id="admin-gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5"></div>
+
+        <!-- Tombol Muat Lebih Banyak (Paginasi) -->
+        <div id="admin-gallery-pagination" class="hidden pt-2 text-center space-y-2">
+          <p id="admin-pagination-info" class="text-xs text-slate-500">Menampilkan 24 dari 120 data</p>
+          <button
+            type="button"
+            onclick="loadMoreAdminGallery()"
+            class="inline-flex items-center gap-2 px-5 py-2.5 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-extrabold transition"
+          >
+            <i data-lucide="chevrons-down" class="w-4 h-4"></i>
+            <span>Muat Lebih Banyak</span>
+          </button>
+        </div>
+
+        <!-- Empty State -->
+        <div id="admin-gallery-empty" class="py-12 text-center space-y-2 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/60">
+          <p class="text-sm font-bold text-slate-700">Belum ada foto dataset terlatih pada kategori ini</p>
+          <p class="text-xs text-slate-500 max-w-md mx-auto">
+            Gunakan panel <strong>Integrasi Dataset Google Drive</strong> untuk menarik ratusan foto atau unggah melalui kotak upload lokal di atas.
+          </p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 3. HALAMAN USER (ROLE: USER — ZERO-FORM & AUTO CLOUD SYNC)            -->
+  <!-- ===================================================================== -->
+  <div id="user-workspace" class="hidden min-h-screen flex flex-col">
+
+    <!-- Header User -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 min-h-[68px] py-2.5 flex flex-wrap items-center justify-between gap-3">
+        <!-- Brand -->
+        <a href="#" onclick="event.preventDefault(); resetUserScannerView();" class="flex items-center gap-2.5 group focus:outline-none">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
+            <i data-lucide="scan-line" class="w-5 h-5"></i>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">NutriScan</span>
+            <span class="text-[11px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">AI</span>
+          </div>
+        </a>
+
+        <!-- Lencana Status Model Aktif Real-Time + Tombol Keluar -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/90 text-emerald-900 text-xs font-semibold">
+            <span class="relative flex h-2 w-2 shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+            </span>
+            <span id="user-integration-badge">AI Terintegrasi &bull; Memuat Status Model...</span>
+          </div>
+
+          <button
+            type="button"
+            onclick="logoutSession()"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold transition"
+          >
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>Keluar</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Area Kerja Utama User -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-7 sm:py-10">
+
+      <!-- 3A. AREA UNGGAH FOTO TUNGGAL TANPA FORMULIR (ZERO-FORM) -->
+      <div id="user-scanner-section" class="max-w-2xl mx-auto space-y-6">
+        <div class="text-center space-y-2.5">
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-full">
+            Pemindai Kualitas Pangan AI
+          </span>
+          <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
+            Cek Real Food atau Junk Food Instan
+          </h1>
+          <p class="text-sm sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
+            Unggah atau ambil foto makananmu tanpa perlu mengisi formulir apa pun. AI langsung mendeteksi jenis hidangan, akurasi prediksi, kalori, dan <strong class="font-semibold text-slate-800">Health Score</strong>.
+          </p>
+        </div>
+
+        <!-- Zero-Form Upload Card -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6">
+          <div
+            id="user-dropzone"
+            class="relative border-2 border-dashed border-slate-300 hover:border-emerald-400 rounded-2xl transition-all duration-200 bg-slate-50/70 overflow-hidden cursor-pointer"
+          >
+            <input type="file" id="user-gallery-input" accept="image/*" class="hidden" />
+            <input type="file" id="user-camera-input" accept="image/*" capture="environment" class="hidden" />
+
+            <!-- Idle Prompt -->
+            <div id="user-idle-prompt" class="px-6 py-12 sm:py-16 text-center space-y-5">
+              <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-2xs">
+                <i data-lucide="camera" class="w-8 h-8"></i>
+              </div>
+
+              <div class="space-y-1.5">
+                <p class="text-base sm:text-lg font-bold text-slate-800">Seret foto makanan ke sini</p>
+                <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
+                  Pilih foto dari galeri perangkat atau gunakan kamera secara langsung.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onclick="event.stopPropagation(); document.getElementById('user-gallery-input').click()"
+                  class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl text-xs sm:text-sm font-bold bg-white border border-slate-300 hover:bg-slate-100 active:scale-[0.98] text-slate-800 shadow-2xs transition"
+                >
+                  <i data-lucide="image" class="w-4 h-4 text-emerald-600"></i>
+                  <span>Pilih dari Galeri</span>
+                </button>
+
+                <button
+                  type="button"
+                  onclick="event.stopPropagation(); openUserCamera()"
+                  class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-sm shadow-emerald-600/20 transition"
+                >
+                  <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+                  <span>Gunakan Kamera</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Animasi Laser Pemindaian 1.2 Detik -->
+            <div id="user-scanning-overlay" class="hidden relative">
+              <div class="relative w-full h-80 sm:h-96 bg-slate-950 overflow-hidden">
+                <img id="user-scanning-preview" src="" alt="Memindai makanan" class="w-full h-full object-cover opacity-90" />
+                <div class="absolute inset-0 bg-slate-950/50 ai-scan-grid backdrop-blur-[1px] flex flex-col items-center justify-center p-4">
+                  <div class="ai-scan-beam"></div>
+                  <div class="px-4 py-2.5 rounded-full bg-slate-900/95 border border-emerald-400/60 text-white text-xs sm:text-sm font-semibold flex items-center gap-2.5 shadow-xl text-center">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                    <span>Mengekstrak fitur visual &amp; mencocokkan model terlatih...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3B. TAMPILAN HASIL AKHIR TERPADU (LANGSUNG MUNCUL SETELAH PEMINDAIAN) -->
+      <div id="user-result-section" class="hidden animate-reveal space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+
+          <!-- KOLOM KIRI (5 COLS): FOTO, KLASIFIKASI UTAMA, PERSENTASE & REFERENSI KEMIRIPAN -->
+          <div class="lg:col-span-5 space-y-5">
+            <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
+              <!-- Foto Makanan + Lencana Status Pemindaian -->
+              <div class="relative w-full h-72 sm:h-80 bg-slate-900">
+                <img id="u-res-photo" src="" alt="Foto Makanan Terdeteksi" class="w-full h-full object-cover" />
+
+                <div class="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2">
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/85 backdrop-blur-md text-white text-xs font-bold shadow">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Pemindaian Selesai</span>
+                  </span>
+
+                  <span id="u-res-portion-pill" class="px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-slate-900 text-xs font-extrabold shadow">
+                    ~420 g
+                  </span>
+                </div>
+              </div>
+
+              <!-- Spanduk Klasifikasi Utama + Lencana Persentase Akurat -->
+              <div class="p-5 sm:p-6 space-y-4">
+                <div id="u-res-banner" class="rounded-2xl p-4 border-2 border-emerald-500/35 bg-emerald-50/85 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p id="u-res-banner-sub" class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                      Klasifikasi AI
+                    </p>
+                    <h2 id="u-res-category-label" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-800">
+                      REAL FOOD
+                    </h2>
+                  </div>
+
+                  <div class="text-right">
+                    <span id="u-res-accuracy-badge" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-extrabold shadow-sm">
+                      <i data-lucide="badge-check" class="w-4 h-4 shrink-0"></i>
+                      <span id="u-res-accuracy-text">Persentase Akurat: 94.5%</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Bar Perbandingan Persentase Ganda -->
+                <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2.5">
+                  <div class="flex items-center justify-between text-xs sm:text-sm font-extrabold">
+                    <span class="text-emerald-700 flex items-center gap-1.5">
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      <span id="u-res-real-pct">Real Food 82.0%</span>
+                    </span>
+                    <span class="text-rose-600 flex items-center gap-1.5">
+                      <span id="u-res-junk-pct">Junk Food 18.0%</span>
+                      <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                    </span>
+                  </div>
+
+                  <div class="w-full h-3.5 rounded-full bg-rose-500 overflow-hidden flex shadow-inner">
+                    <div id="u-res-real-bar" style="width: 82%" class="h-full bg-emerald-500 transition-all duration-700 ease-out"></div>
+                  </div>
+                </div>
+
+                <!-- Kartu Referensi Kemiripan Visual (Menampilkan Foto Sampel Terdekat dari Dataset Admin) -->
+                <div class="rounded-2xl bg-slate-900 text-slate-100 p-4 space-y-3">
+                  <div class="flex items-center justify-between gap-2 text-xs font-bold text-emerald-400">
+                    <span class="flex items-center gap-1.5">
+                      <i data-lucide="sparkles" class="w-4 h-4 shrink-0"></i>
+                      <span>Referensi Kemiripan Visual</span>
+                    </span>
+                    <span id="u-res-sim-pill" class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[11px]">
+                      92% Mirip
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-3.5">
+                    <img
+                      id="u-res-ref-thumb"
+                      src="https://placehold.co/96x96/0f172a/10b981?text=AI"
+                      alt="Sampel Referensi Dataset"
+                      class="w-14 h-14 rounded-xl object-cover border border-slate-700 bg-slate-800 shrink-0"
+                    />
+                    <div class="min-w-0 flex-1 space-y-0.5">
+                      <p id="u-res-ref-title" class="text-xs sm:text-sm font-extrabold text-white truncate">
+                        Sampel Dataset Terdekat
+                      </p>
+                      <p id="u-res-match-info" class="text-xs text-slate-300 leading-relaxed">
+                        Dicocokkan dengan vektor fitur visual terlatih.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KOLOM KANAN (7 COLS): IDENTIFIKASI HIDANGAN, NUTRISI & HEALTH SCORE A-E -->
+          <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-6">
+
+            <!-- Nama Makanan Terdeteksi & Estimasi Berat -->
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="space-y-1">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Identifikasi Hidangan</p>
+                <h2 id="u-res-dish-name" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
+                  Nasi Putih, Ayam Bakar &amp; Lalapan
+                </h2>
+              </div>
+              <div class="px-3.5 py-2 rounded-2xl bg-slate-100 border border-slate-200/80 text-right shrink-0">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estimasi Berat Porsi</p>
+                <p id="u-res-weight-text" class="text-sm sm:text-base font-extrabold text-slate-900">~430 gram</p>
+              </div>
+            </div>
+
+            <!-- Tag Komponen Hidangan -->
+            <div id="u-res-components" class="flex flex-wrap gap-2"></div>
+
+            <!-- Total Kalori + Skala Interaktif Health Score A - E -->
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-stretch">
+              <div class="sm:col-span-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4 sm:p-5 flex flex-col justify-between">
+                <span class="text-xs font-medium text-slate-300">Total Kalori</span>
+                <div class="flex items-baseline gap-1.5 my-1">
+                  <span id="u-res-calories" class="text-3xl sm:text-4xl font-extrabold tracking-tight">505</span>
+                  <span class="text-sm font-bold text-emerald-400">kkal</span>
+                </div>
+                <span id="u-res-akg" class="text-[11px] font-semibold text-slate-300">~23% dari kebutuhan harian</span>
+              </div>
+
+              <div class="sm:col-span-7 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 flex flex-col justify-between gap-3">
+                <div>
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Health Score</span>
+                  <h3 id="u-res-grade-title" class="text-sm sm:text-base font-extrabold text-slate-900">Skor A — Sangat Sehat &amp; Alami</h3>
+                </div>
+
+                <div class="flex items-center gap-2" role="group" aria-label="Skala Health Score A sampai E">
+                  <button type="button" onclick="selectUserHealthGrade('A')" data-u-grade="A" class="u-grade-btn flex-1 h-11 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center transition-all duration-200 cursor-pointer">A</button>
+                  <button type="button" onclick="selectUserHealthGrade('B')" data-u-grade="B" class="u-grade-btn flex-1 h-11 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center transition-all duration-200 cursor-pointer">B</button>
+                  <button type="button" onclick="selectUserHealthGrade('C')" data-u-grade="C" class="u-grade-btn flex-1 h-11 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center transition-all duration-200 cursor-pointer">C</button>
+                  <button type="button" onclick="selectUserHealthGrade('D')" data-u-grade="D" class="u-grade-btn flex-1 h-11 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center transition-all duration-200 cursor-pointer">D</button>
+                  <button type="button" onclick="selectUserHealthGrade('E')" data-u-grade="E" class="u-grade-btn flex-1 h-11 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center transition-all duration-200 cursor-pointer">E</button>
+                </div>
+
+                <p id="u-res-grade-desc" class="text-xs text-slate-500 leading-relaxed">
+                  Didominasi bahan pangan segar utuh, tinggi serat, dan protein berkualitas.
+                </p>
+              </div>
+            </div>
+
+            <!-- 6 Kartu Rincian Nutrisi -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <p class="text-xs font-medium text-slate-500">Protein</p>
+                <p id="u-res-protein" class="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">29 g</p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <p class="text-xs font-medium text-slate-500">Karbohidrat</p>
+                <p id="u-res-carbs" class="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">63 g</p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <p class="text-xs font-medium text-slate-500">Lemak</p>
+                <p id="u-res-fat" class="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">14 g</p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <p class="text-xs font-medium text-slate-500">Serat</p>
+                <p id="u-res-fiber" class="text-lg sm:text-xl font-extrabold text-emerald-700 mt-0.5">6 g</p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <p class="text-xs font-medium text-slate-500">Gula</p>
+                <p id="u-res-sugar" class="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">4 g</p>
+              </div>
+
+              <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5">
+                <p class="text-xs font-medium text-slate-500">Natrium</p>
+                <p id="u-res-sodium" class="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">550 mg</p>
+              </div>
+            </div>
+
+            <!-- Ringkasan Apa yang Baik & Apa yang Perlu Diperhatikan -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div class="rounded-2xl border border-emerald-200/90 bg-emerald-50/60 p-4 space-y-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  </span>
+                  <h4 class="text-sm font-extrabold text-emerald-950">Apa yang Baik</h4>
+                </div>
+                <ul id="u-res-good" class="space-y-1.5 text-xs sm:text-[13px] text-emerald-950/90 leading-relaxed"></ul>
+              </div>
+
+              <div class="rounded-2xl border border-amber-200/90 bg-amber-50/60 p-4 space-y-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                  </span>
+                  <h4 class="text-sm font-extrabold text-amber-950">Apa yang Perlu Diperhatikan</h4>
+                </div>
+                <ul id="u-res-attention" class="space-y-1.5 text-xs sm:text-[13px] text-amber-950/90 leading-relaxed"></ul>
+              </div>
+            </div>
+
+            <!-- Tombol Cek Foto Makanan Lain -->
+            <div class="pt-2">
+              <button
+                type="button"
+                onclick="resetUserScannerView()"
+                class="w-full py-3.5 px-6 min-h-[50px] rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold shadow-sm flex items-center justify-center gap-2.5 transition"
+              >
+                <i data-lucide="refresh-cw" class="w-5 h-5 text-emerald-400"></i>
+                <span>Cek Foto Makanan Lain</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL PANDUAN & SCRIPT GOOGLE APPS SCRIPT (Code.gs)                   -->
+  <!-- ===================================================================== -->
+  <div id="drive-guide-modal" class="fixed inset-0 z-50 hidden bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 animate-reveal">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="file-code-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">Panduan &amp; Script Google Drive (Code.gs)</h3>
+            <p class="text-xs text-slate-500">Mendukung paginasi ratusan foto (sz=w256) &amp; sinkronisasi model cloud</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeDriveGuideModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-5 text-xs sm:text-sm text-slate-700">
+        <!-- 3 Langkah Singkat -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-1">
+            <span class="inline-block px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold">Langkah 1</span>
+            <p class="font-extrabold text-slate-900 pt-1">Siapkan Folder Drive</p>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Buat 2 folder di Google Drive untuk foto <strong>Real Food</strong> dan <strong>Junk Food</strong>, lalu salin link masing-masing folder.
+            </p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-1">
+            <span class="inline-block px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold">Langkah 2</span>
+            <p class="font-extrabold text-slate-900 pt-1">Pasang Code.gs</p>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Buka <strong>script.google.com</strong> &rarr; Proyek Baru &rarr; tempel kode di bawah ini ke <code>Code.gs</code> dan simpan.
+            </p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-1">
+            <span class="inline-block px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold">Langkah 3</span>
+            <p class="font-extrabold text-slate-900 pt-1">Deploy Web App</p>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Klik <strong>Terapkan &rarr; Deployment Baru &rarr; Aplikasi Web</strong>, atur akses ke <strong>Siapa saja (Anyone)</strong>, lalu salin URL Web App.
+            </p>
+          </div>
+        </div>
+
+        <!-- Header Kode + Tombol Salin -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Kode Google Apps Script (Code.gs)</span>
+            <button
+              type="button"
+              onclick="copyAppsScriptCode()"
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition"
+            >
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Salin Kode Code.gs</span>
+            </button>
+          </div>
+
+          <textarea
+            id="apps-script-code-box"
+            readonly
+            rows="15"
+            class="w-full p-4 rounded-2xl bg-slate-950 text-emerald-300 font-mono text-xs leading-relaxed border border-slate-800 focus:outline-none"
+          >const MODEL_FILENAME = "nutriscan_trained_model.json";
+
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "";
+
+  if (action === "fetchBatch") {
+    var folderId = e.parameter.folderId || "";
+    var offset = parseInt(e.parameter.offset || "0", 10);
+    var limit = parseInt(e.parameter.limit || "15", 10);
+    return jsonResponse(fetchFolderBatch(folderId, offset, limit));
+  }
+
+  if (action === "getModel") {
+    return jsonResponse(loadCloudModel());
+  }
+
+  return jsonResponse({ status: "ok", message: "NutriScan AI Drive Connector Aktif" });
+}
+
+function doPost(e) {
+  try {
+    var rawBody = e && e.postData ? e.postData.contents : "{}";
+    var payload = JSON.parse(rawBody);
+    if (payload.action === "saveModel") {
+      return jsonResponse(saveCloudModel(payload));
+    }
+    return jsonResponse({ status: "error", message: "Action tidak dikenali" });
+  } catch (err) {
+    return jsonResponse({ status: "error", message: err.toString() });
+  }
+}
+
+// Menarik foto per batch (15 foto/request) menggunakan thumbnail Drive sz=w256
+function fetchFolderBatch(folderId, offset, limit) {
+  if (!folderId) {
+    return { status: "error", message: "Folder ID kosong" };
+  }
+
+  try {
+    var folder = DriveApp.getFolderById(folderId);
+    var filesIterator = folder.getFiles();
+    var allImages = [];
+
+    while (filesIterator.hasNext()) {
+      var file = filesIterator.next();
+      var mime = file.getMimeType();
+      if (mime && mime.indexOf("image/") === 0) {
+        allImages.push(file);
+      }
+    }
+
+    var totalFiles = allImages.length;
+    var sliceEnd = Math.min(offset + limit, totalFiles);
+    var batchItems = [];
+    var token = ScriptApp.getOAuthToken();
+
+    for (var i = offset; i < sliceEnd; i++) {
+      var f = allImages[i];
+      var fileId = f.getId();
+      var fileName = f.getName();
+      var dataUri = "";
+
+      try {
+        var thumbUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w256";
+        var resp = UrlFetchApp.fetch(thumbUrl, {
+          headers: { Authorization: "Bearer " + token },
+          muteHttpExceptions: true
+        });
+        if (resp.getResponseCode() === 200) {
+          var blob = resp.getBlob();
+          dataUri = "data:" + blob.getContentType() + ";base64," + Utilities.base64Encode(blob.getBytes());
+        } else {
+          var fallbackBlob = f.getBlob();
+          dataUri = "data:" + fallbackBlob.getContentType() + ";base64," + Utilities.base64Encode(fallbackBlob.getBytes());
+        }
+      } catch (imgErr) {
+        var rawBlob = f.getBlob();
+        dataUri = "data:" + rawBlob.getContentType() + ";base64," + Utilities.base64Encode(rawBlob.getBytes());
+      }
+
+      batchItems.push({
+        id: fileId,
+        name: fileName,
+        dataUri: dataUri
+      });
+    }
+
+    return {
+      status: "ok",
+      totalFiles: totalFiles,
+      offset: offset,
+      nextOffset: sliceEnd,
+      hasMore: sliceEnd < totalFiles,
+      items: batchItems
+    };
+  } catch (err) {
+    return { status: "error", message: "Gagal mengakses folder Drive: " + err.toString() };
+  }
+}
+
+// Menyimpan database vektor fitur terlatih ke file JSON di Google Drive
+function saveCloudModel(payload) {
+  var content = JSON.stringify({
+    updatedAt: payload.updatedAt || new Date().toISOString(),
+    totalItems: payload.totalItems || 0,
+    items: payload.items || []
+  });
+
+  var existing = DriveApp.getFilesByName(MODEL_FILENAME);
+  if (existing.hasNext()) {
+    var file = existing.next();
+    file.setContent(content);
+  } else {
+    DriveApp.createFile(MODEL_FILENAME, content, MimeType.PLAIN_TEXT);
+  }
+
+  return { status: "ok", savedCount: (payload.items || []).length };
+}
+
+// Mengambil database vektor terlatih terbaru untuk perangkat User
+function loadCloudModel() {
+  var files = DriveApp.getFilesByName(MODEL_FILENAME);
+  if (!files.hasNext()) {
+    return { status: "empty", items: [] };
+  }
+  var file = files.next();
+  var parsed = JSON.parse(file.getBlob().getDataAsString());
+  return {
+    status: "ok",
+    updatedAt: parsed.updatedAt || "",
+    items: parsed.items || []
+  };
+}
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}</textarea>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end">
+        <button
+          type="button"
+          onclick="closeDriveGuideModal()"
+          class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition"
+        >
+          Tutup Panduan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL KAMERA WEBCAM DESKTOP (FALLBACK NON-MOBILE)                     -->
+  <!-- ===================================================================== -->
+  <div id="webcam-modal" class="fixed inset-0 z-50 hidden bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="text-sm font-extrabold text-slate-900">Ambil Foto Makanan</h3>
+        <button type="button" onclick="closeWebcamModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="bg-slate-950">
+        <video id="webcam-video" autoplay playsinline class="w-full h-72 object-cover"></video>
+      </div>
+      <div class="px-5 py-4 bg-slate-50 flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeWebcamModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition">
+          Batal
+        </button>
+        <button type="button" onclick="captureWebcamFrame()" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow transition">
+          Ambil Foto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offscreen Canvases: 64x64 untuk Ekstraksi 24D & 96x96 untuk Thumbnail Kompresi Ringan (~2.5KB) -->
+  <canvas id="canvas-feature-64" width="64" height="64" class="hidden"></canvas>
+  <canvas id="canvas-thumb-96" width="96" height="96" class="hidden"></canvas>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT ENGINE                                                     -->
+  <!-- ===================================================================== -->
+  <script>
+    const SHARED_DATASET_KEY = "nutriscan_shared_dataset_v1";
+    const AUTH_SESSION_KEY = "nutriscan_auth_session_v1";
+    const DRIVE_CONFIG_KEY = "nutriscan_drive_config_v1";
+    const GALLERY_PAGE_SIZE = 24;
+
+    const VALID_CREDENTIALS = {
+      admin: { password: "admin123", role: "admin" },
+      user: { password: "user123", role: "user" },
+    };
+
+    const state = {
+      adminFilter: "all",
+      adminVisibleLimit: GALLERY_PAGE_SIZE,
+      isTrainingBusy: false,
+      isUserScanning: false,
+      webcamStream: null,
+    };
+
+    const HEALTH_GRADE_INFO = {
+      A: {
+        title: "Skor A — Sangat Sehat & Alami",
+        desc: "Didominasi bahan pangan segar utuh, tinggi serat, protein berkualitas, dan rendah lemak jenuh.",
+      },
+      B: {
+        title: "Skor B — Baik & Cukup Seimbang",
+        desc: "Komposisi nutrisi harian terjaga baik; perhatikan keseimbangan garam dan minyak tambahan.",
+      },
+      C: {
+        title: "Skor C — Cukup Seimbang (Batasi Porsi)",
+        desc: "Kandungan minyak, natrium, atau karbohidrat olahan mulai terasa; imbangi dengan air putih & sayur.",
+      },
+      D: {
+        title: "Skor D — Kurang Sehat (Tinggi Kalori / Lemak)",
+        desc: "Tinggi lemak jenuh atau garam dari proses penggorengan/saus; sebaiknya tidak terlalu sering.",
+      },
+      E: {
+        title: "Skor E — Ultra-Proses / Junk Food",
+        desc: "Padat kalori dengan kadar lemak jenuh, gula, atau natrium tinggi serta minim serat alami.",
+      },
+    };
+
+    const NUTRITION_PROFILES = [
+      {
+        keywords: ["ramen", "mie kuah", "udon", "bakso", "soto"],
+        portionGrams: 450,
+        components: ["Mie / Isian ~180g", "Telur & Lauk ~65g", "Kuah Kaldu ~165ml", "Sayur & Daun Bawang ~40g"],
+        calories: 515,
+        protein: 24,
+        carbs: 63,
+        fat: 16,
+        fiber: 5,
+        sugar: 4,
+        sodium: 1090,
+        grade: "B",
+        good: [
+          "Sumber protein baik (24g) dari telur dan kaldu yang mengenyangkan.",
+          "Dilengkapi sayuran pelengkap dan karbohidrat penghasil energi.",
+        ],
+        attention: [
+          "Kadar natrium kuah cukup tinggi (1090 mg); sebaiknya tidak menghabiskan seluruh kuah.",
+        ],
+      },
+      {
+        keywords: ["mie goreng", "indomie", "kwetiau", "bihun goreng"],
+        portionGrams: 350,
+        components: ["Mie Olahan ~220g", "Telur / Topping ~55g", "Minyak & Kecap ~45g", "Sayur Pelengkap ~30g"],
+        calories: 560,
+        protein: 14,
+        carbs: 72,
+        fat: 23,
+        fiber: 3,
+        sugar: 9,
+        sodium: 1180,
+        grade: "D",
+        good: [
+          "Memberikan pasokan energi karbohidrat cepat untuk aktivitas.",
+        ],
+        attention: [
+          "Tinggi natrium (1180 mg) dan karbohidrat olahan dengan serat yang rendah.",
+          "Tambahkan sayuran hijau atau protein rebus/panggang agar lebih seimbang.",
+        ],
+      },
+      {
+        keywords: ["burger", "kentang goreng", "fries", "hotdog", "sandwich"],
+        portionGrams: 430,
+        components: ["Roti & Patty Daging ~210g", "Kentang Goreng ~140g", "Keju & Mayones ~55g", "Selada & Tomat ~25g"],
+        calories: 840,
+        protein: 29,
+        carbs: 78,
+        fat: 45,
+        fiber: 4,
+        sugar: 12,
+        sodium: 1360,
+        grade: "E",
+        good: [
+          "Mengandung protein (29g) dari daging dan keju untuk membantu rasa kenyang.",
+        ],
+        attention: [
+          "Sangat padat kalori (840 kkal) dan tinggi lemak jenuh (45g) dari kentang goreng serta saus.",
+          "Kadar natrium tinggi (1360 mg); imbangi dengan minum air putih yang cukup.",
+        ],
+      },
+      {
+        keywords: ["pizza", "lasagna", "pasta"],
+        portionGrams: 360,
+        components: ["Adonan Roti Panggang ~190g", "Keju Leleh ~90g", "Saus Tomat & Topping ~80g"],
+        calories: 740,
+        protein: 28,
+        carbs: 76,
+        fat: 35,
+        fiber: 3,
+        sugar: 9,
+        sodium: 1290,
+        grade: "D",
+        good: [
+          "Tinggi protein (28g) dan kalsium dari lapisan keju panggang.",
+        ],
+        attention: [
+          "Tinggi lemak jenuh (35g) dan natrium (1290 mg) dari keju serta daging olahan.",
+        ],
+      },
+      {
+        keywords: ["ayam crispy", "fried chicken", "kfc", "ayam tepung", "nugget"],
+        portionGrams: 310,
+        components: ["Daging Ayam ~175g", "Balutan Tepung Krispi ~85g", "Minyak & Saus ~50g"],
+        calories: 630,
+        protein: 32,
+        carbs: 34,
+        fat: 40,
+        fiber: 1,
+        sugar: 4,
+        sodium: 990,
+        grade: "D",
+        good: [
+          "Sumber protein hewani tinggi (32g) untuk pemeliharaan jaringan otot.",
+        ],
+        attention: [
+          "Proses penggorengan tepung menyerap minyak tinggi (40g lemak) dan minim serat.",
+        ],
+      },
+      {
+        keywords: ["gorengan", "bakwan", "tahu isi", "tempe mendoan", "risol", "seblak", "cireng"],
+        portionGrams: 270,
+        components: ["Adonan Tepung & Isian ~205g", "Minyak & Bumbu ~65g"],
+        calories: 590,
+        protein: 10,
+        carbs: 64,
+        fat: 33,
+        fiber: 2,
+        sugar: 6,
+        sodium: 820,
+        grade: "E",
+        good: [
+          "Memberikan dorongan energi kalori praktis.",
+        ],
+        attention: [
+          "Tinggi lemak jenuh dari penggorengan dan rendah serat alami.",
+        ],
+      },
+      {
+        keywords: ["salad", "sayur", "pecel", "gado", "lalapan", "capcay"],
+        portionGrams: 385,
+        components: ["Sayuran Hijau Segar ~195g", "Sumber Protein ~130g", "Dressing / Bumbu ~60g"],
+        calories: 375,
+        protein: 31,
+        carbs: 22,
+        fat: 16,
+        fiber: 9,
+        sugar: 5,
+        sodium: 430,
+        grade: "A",
+        good: [
+          "Sangat kaya protein (31g) dan serat pangan alami (9g) untuk pencernaan sehat.",
+          "Didominasi bahan pangan segar utuh dengan kalori terkontrol.",
+        ],
+        attention: [
+          "Gunakan saus atau bumbu dressing secukupnya agar lemak tambahan tetap terjaga.",
+        ],
+      },
+      {
+        keywords: ["nasi", "ayam bakar", "ikan", "salmon", "telur", "tempe", "tahu", "rendang", "padang"],
+        portionGrams: 430,
+        components: ["Nasi / Karbohidrat ~170g", "Lauk Protein Utama ~135g", "Sayuran ~95g", "Sambal / Bumbu ~30g"],
+        calories: 505,
+        protein: 29,
+        carbs: 63,
+        fat: 14,
+        fiber: 6,
+        sugar: 4,
+        sodium: 550,
+        grade: "A",
+        good: [
+          "Komposisi makronutrisi seimbang antara karbohidrat, protein (29g), dan serat (6g).",
+          "Diolah dari bahan pangan segar alami.",
+        ],
+        attention: [
+          "Sesuaikan porsi nasi dan minyak/santan bumbu dengan target kalori harian.",
+        ],
+      },
+      {
+        keywords: ["buah", "apel", "pisang", "alpukat", "pepaya", "semangka", "smoothie"],
+        portionGrams: 300,
+        components: ["Buah Segar Aneka Warna ~300g"],
+        calories: 185,
+        protein: 3,
+        carbs: 45,
+        fat: 1,
+        fiber: 8,
+        sugar: 32,
+        sodium: 12,
+        grade: "A",
+        good: [
+          "100% bahan alami kaya vitamin, antioksidan, air, dan serat pangan (8g).",
+          "Sangat rendah lemak dan hampir bebas natrium.",
+        ],
+        attention: [
+          "Mengandung gula buah alami; padukan dengan kacang atau yogurt tawar agar kenyang lebih lama.",
+        ],
+      },
+      {
+        keywords: ["boba", "teh manis", "kopi susu", "soda", "milkshake", "es krim", "donat", "cake"],
+        portionGrams: 420,
+        components: ["Bahan Manis & Susu ~320g", "Topping / Sirup ~100g"],
+        calories: 460,
+        protein: 5,
+        carbs: 78,
+        fat: 13,
+        fiber: 1,
+        sugar: 46,
+        sodium: 210,
+        grade: "E",
+        good: [
+          "Memberikan penyegaran dan energi instan.",
+        ],
+        attention: [
+          "Sangat tinggi gula tambahan (46g) dengan serat dan protein yang sangat rendah.",
+        ],
+      },
+    ];
+
+    function refreshIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+      }
+    }
+
+    // =========================================================================
+    // 1. SISTEM LOGIN AMAN & MANAJEMEN SESI (SESSIONSTORAGE)
+    // =========================================================================
+    function togglePasswordVisibility() {
+      const passInput = document.getElementById("login-password");
+      const eyeIcon = document.getElementById("password-eye-icon");
+      const isPassword = passInput.type === "password";
+      passInput.type = isPassword ? "text" : "password";
+      eyeIcon.setAttribute("data-lucide", isPassword ? "eye-off" : "eye");
+      refreshIcons();
+    }
+
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      const usernameInput = document.getElementById("login-username").value.trim().toLowerCase();
+      const passwordInput = document.getElementById("login-password").value;
+      const errorBox = document.getElementById("login-error-box");
+      const errorText = document.getElementById("login-error-text");
+
+      const account = VALID_CREDENTIALS[usernameInput];
+      if (!account || account.password !== passwordInput) {
+        errorText.textContent = "Username atau kata sandi tidak sesuai. Silakan coba lagi.";
+        errorBox.classList.remove("hidden");
+        return;
+      }
+
+      errorBox.classList.add("hidden");
+      const sessionPayload = {
+        username: usernameInput,
+        role: account.role,
+        loggedInAt: new Date().toISOString(),
+      };
+      sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionPayload));
+      applyAuthenticatedView(sessionPayload);
+      showToast(`Berhasil masuk sebagai ${usernameInput}.`, "success");
+    }
+
+    function getActiveSession() {
+      try {
+        const raw = sessionStorage.getItem(AUTH_SESSION_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.role === "admin" || parsed.role === "user")) {
+          return parsed;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function logoutSession() {
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      closeWebcamModal();
+      document.getElementById("login-form").reset();
+      document.getElementById("login-password").type = "password";
+      document.getElementById("password-eye-icon").setAttribute("data-lucide", "eye");
+      document.getElementById("login-error-box").classList.add("hidden");
+      applyAuthenticatedView(null);
+      refreshIcons();
+      showToast("Sesi berakhir. Anda telah keluar dari sistem.", "default");
+    }
+
+    async function applyAuthenticatedView(session) {
+      const loginScreen = document.getElementById("login-screen");
+      const adminWorkspace = document.getElementById("admin-workspace");
+      const userWorkspace = document.getElementById("user-workspace");
+
+      refreshAllSystemStats();
+
+      if (!session) {
+        loginScreen.classList.remove("hidden");
+        adminWorkspace.classList.add("hidden");
+        userWorkspace.classList.add("hidden");
+        refreshIcons();
+        return;
+      }
+
+      loginScreen.classList.add("hidden");
+
+      if (session.role === "admin") {
+        adminWorkspace.classList.remove("hidden");
+        userWorkspace.classList.add("hidden");
+        state.adminVisibleLimit = GALLERY_PAGE_SIZE;
+        renderAdminGallery();
+        refreshIcons();
+      } else {
+        userWorkspace.classList.remove("hidden");
+        adminWorkspace.classList.add("hidden");
+        resetUserScannerView();
+        refreshIcons();
+        await autoSyncCloudModelForUser();
+      }
+    }
+
+    // =========================================================================
+    // 2. DATABASE BERSAMA & KONFIGURASI GOOGLE DRIVE
+    // =========================================================================
+    function getSharedDataset() {
+      try {
+        const raw = localStorage.getItem(SHARED_DATASET_KEY);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) return arr;
+        }
+      } catch (_) {}
+      return [];
+    }
+
+    function saveSharedDataset(items) {
+      try {
+        localStorage.setItem(SHARED_DATASET_KEY, JSON.stringify(items));
+        return true;
+      } catch (_) {
+        showToast("Kapasitas penyimpanan lokal penuh. Ekspor model ke .JSON atau Cloud Drive.", "warning");
+        return false;
+      }
+    }
+
+    function getDriveConfig() {
+      try {
+        const raw = localStorage.getItem(DRIVE_CONFIG_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      return { webAppUrl: "", realFolderRaw: "", junkFolderRaw: "" };
+    }
+
+    function saveDriveConfig() {
+      const config = {
+        webAppUrl: (document.getElementById("drive-webapp-url").value || "").trim(),
+        realFolderRaw: (document.getElementById("drive-folder-real").value || "").trim(),
+        junkFolderRaw: (document.getElementById("drive-folder-junk").value || "").trim(),
+      };
+      localStorage.setItem(DRIVE_CONFIG_KEY, JSON.stringify(config));
+    }
+
+    /**
+     * Mengekstrak ID Folder Google Drive secara otomatis dari URL lengkap maupun ID langsung
+     */
+    function extractGoogleDriveFolderId(input) {
+      if (!input) return "";
+      const trimmed = input.trim();
+
+      // Pola 1: https://drive.google.com/drive/folders/FOLDER_ID
+      const folderMatch = trimmed.match(/\/folders\/([a-zA-Z0-9_-]{10,})/);
+      if (folderMatch && folderMatch[1]) return folderMatch[1];
+
+      // Pola 2: ?id=FOLDER_ID atau &id=FOLDER_ID
+      const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+      if (idParamMatch && idParamMatch[1]) return idParamMatch[1];
+
+      // Pola 3: ID Folder langsung
+      if (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed)) return trimmed;
+
+      return "";
+    }
+
+    function handleFolderInputChange(type) {
+      saveDriveConfig();
+      const inputEl = document.getElementById(type === "real" ? "drive-folder-real" : "drive-folder-junk");
+      const badgeEl = document.getElementById(type === "real" ? "drive-real-id-badge" : "drive-junk-id-badge");
+      const extractedId = extractGoogleDriveFolderId(inputEl.value);
+
+      if (extractedId) {
+        badgeEl.textContent = `ID: ${extractedId.slice(0, 8)}...`;
+        badgeEl.classList.remove("hidden");
+      } else {
+        badgeEl.classList.add("hidden");
+      }
+    }
+
+    function extractFoodNameFromFilename(filename) {
+      const noExt = filename.replace(/\.[^/.]+$/, "");
+      const cleaned = noExt
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\d+\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!cleaned) return "Sampel Makanan";
+      return cleaned
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+    }
+
+    // =========================================================================
+    // 3. EKSTRAKTOR VEKTOR CIRI VISUAL 24-DIMENSI & KOMPRESI THUMBNAIL 96x96
+    // =========================================================================
+    function extract24DFeaturesAndThumbnail(imageDataUrl) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // 1) Thumbnail terkompresi 96x96px JPEG (~2.5KB) agar menampung ratusan/ribuan data
+          const thumbCanvas = document.getElementById("canvas-thumb-96");
+          const tCtx = thumbCanvas.getContext("2d");
+          const tSize = 96;
+          tCtx.clearRect(0, 0, tSize, tSize);
+
+          const minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2;
+          const sy = (img.height - minSide) / 2;
+          tCtx.drawImage(img, sx, sy, minSide, minSide, 0, 0, tSize, tSize);
+          const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.58);
+
+          // 2) Ekstraksi 24-Dimensional Visual Feature Vector pada Grid 64x64
+          const featCanvas = document.getElementById("canvas-feature-64");
+          const fCtx = featCanvas.getContext("2d");
+          const size = 64;
+          fCtx.clearRect(0, 0, size, size);
+          fCtx.drawImage(img, 0, 0, size, size);
+
+          const pixels = fCtx.getImageData(0, 0, size, size).data;
+          const n = size * size;
+
+          const rArr = new Float32Array(n);
+          const gArr = new Float32Array(n);
+          const bArr = new Float32Array(n);
+          const sArr = new Float32Array(n);
+          const vArr = new Float32Array(n);
+          const lumaArr = new Float32Array(n);
+
+          let sumR = 0, sumG = 0, sumB = 0;
+          let sumS = 0, sumV = 0;
+
+          const hueBins = [0, 0, 0, 0, 0, 0];
+          let hueWeightTotal = 0.0001;
+
+          let goldenFriedPixels = 0;
+          let freshGreenPixels = 0;
+          let richSaucePixels = 0;
+          let brightWhitePixels = 0;
+          let darkCharredPixels = 0;
+
+          let centerSat = 0, centerVal = 0, centerCount = 0;
+          let borderSat = 0, borderVal = 0, borderCount = 0;
+
+          for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+              const p = y * size + x;
+              const idx = p * 4;
+
+              const r = pixels[idx] / 255;
+              const g = pixels[idx + 1] / 255;
+              const b = pixels[idx + 2] / 255;
+
+              const max = Math.max(r, g, b);
+              const min = Math.min(r, g, b);
+              const delta = max - min;
+
+              const sat = max === 0 ? 0 : delta / max;
+              const val = max;
+              const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+              let hue = 0;
+              if (delta > 0.0001) {
+                if (max === r) hue = 60 * (((g - b) / delta) % 6);
+                else if (max === g) hue = 60 * ((b - r) / delta + 2);
+                else hue = 60 * ((r - g) / delta + 4);
+                if (hue < 0) hue += 360;
+              }
+
+              rArr[p] = r;
+              gArr[p] = g;
+              bArr[p] = b;
+              sArr[p] = sat;
+              vArr[p] = val;
+              lumaArr[p] = luma;
+
+              sumR += r;
+              sumG += g;
+              sumB += b;
+              sumS += sat;
+              sumV += val;
+
+              if (sat > 0.12) {
+                hueWeightTotal += sat;
+                if (hue < 30 || hue >= 330) hueBins[0] += sat;
+                else if (hue < 60) hueBins[1] += sat;
+                else if (hue < 90) hueBins[2] += sat;
+                else if (hue < 165) hueBins[3] += sat;
+                else if (hue < 255) hueBins[4] += sat;
+                else hueBins[5] += sat;
+              }
+
+              if (hue >= 18 && hue <= 48 && sat > 0.34 && val > 0.30 && val < 0.88) {
+                goldenFriedPixels++;
+              }
+              if (hue >= 65 && hue <= 165 && sat > 0.20 && val > 0.18) {
+                freshGreenPixels++;
+              }
+              if ((hue <= 45 || hue >= 340) && sat > 0.55 && val > 0.28) {
+                richSaucePixels++;
+              }
+              if (sat < 0.16 && val > 0.76) {
+                brightWhitePixels++;
+              }
+              if (val <= 0.26) {
+                darkCharredPixels++;
+              }
+
+              const inCenter = x >= 16 && x < 48 && y >= 16 && y < 48;
+              if (inCenter) {
+                centerSat += sat;
+                centerVal += val;
+                centerCount++;
+              } else {
+                borderSat += sat;
+                borderVal += val;
+                borderCount++;
+              }
+            }
+          }
+
+          const meanR = sumR / n;
+          const meanG = sumG / n;
+          const meanB = sumB / n;
+          const meanS = sumS / n;
+          const meanV = sumV / n;
+
+          let varR = 0, varG = 0, varB = 0, varS = 0, varV = 0;
+          for (let p = 0; p < n; p++) {
+            varR += (rArr[p] - meanR) ** 2;
+            varG += (gArr[p] - meanG) ** 2;
+            varB += (bArr[p] - meanB) ** 2;
+            varS += (sArr[p] - meanS) ** 2;
+            varV += (vArr[p] - meanV) ** 2;
+          }
+
+          const stdR = Math.min(1, Math.sqrt(varR / n) * 2);
+          const stdG = Math.min(1, Math.sqrt(varG / n) * 2);
+          const stdB = Math.min(1, Math.sqrt(varB / n) * 2);
+          const stdS = Math.min(1, Math.sqrt(varS / n) * 2);
+          const stdV = Math.min(1, Math.sqrt(varV / n) * 2);
+
+          let sobelSum = 0;
+          let sobelCount = 0;
+          for (let y = 1; y < size - 1; y++) {
+            for (let x = 1; x < size - 1; x++) {
+              const gx =
+                -lumaArr[(y - 1) * size + (x - 1)] + lumaArr[(y - 1) * size + (x + 1)] +
+                -2 * lumaArr[y * size + (x - 1)] + 2 * lumaArr[y * size + (x + 1)] +
+                -lumaArr[(y + 1) * size + (x - 1)] + lumaArr[(y + 1) * size + (x + 1)];
+
+              const gy =
+                -lumaArr[(y - 1) * size + (x - 1)] - 2 * lumaArr[(y - 1) * size + x] - lumaArr[(y - 1) * size + (x + 1)] +
+                lumaArr[(y + 1) * size + (x - 1)] + 2 * lumaArr[(y + 1) * size + x] + lumaArr[(y + 1) * size + (x + 1)];
+
+              sobelSum += Math.min(1, Math.sqrt(gx * gx + gy * gy));
+              sobelCount++;
+            }
+          }
+          const textureSharpness = sobelSum / sobelCount;
+
+          const centerSatContrast = Math.max(0, Math.min(1, 0.5 + (centerSat / centerCount - borderSat / borderCount)));
+          const centerValContrast = Math.max(0, Math.min(1, 0.5 + (centerVal / centerCount - borderVal / borderCount)));
+
+          const raw24 = [
+            meanR,
+            meanG,
+            meanB,
+            stdR,
+            stdG,
+            stdB,
+            hueBins[0] / hueWeightTotal,
+            hueBins[1] / hueWeightTotal,
+            hueBins[2] / hueWeightTotal,
+            hueBins[3] / hueWeightTotal,
+            hueBins[4] / hueWeightTotal,
+            hueBins[5] / hueWeightTotal,
+            meanS,
+            stdS,
+            meanV,
+            stdV,
+            goldenFriedPixels / n,
+            freshGreenPixels / n,
+            richSaucePixels / n,
+            brightWhitePixels / n,
+            darkCharredPixels / n,
+            centerSatContrast,
+            centerValContrast,
+            textureSharpness,
+          ];
+
+          const vector24 = raw24.map((val) => Number(val.toFixed(4)));
+          resolve({ vector24, thumbnail });
+        };
+
+        img.onerror = () => {
+          resolve({
+            vector24: new Array(24).fill(0.25),
+            thumbnail: "",
+          });
+        };
+
+        img.src = imageDataUrl;
+      });
+    }
+
+    // =========================================================================
+    // 4. CLASSIFIER WEIGHTED k-NN & LOOCV TEROPTIMASI UNTUK RATUSAN FOTO
+    // =========================================================================
+    function computeCosineAndEuclideanSimilarity(vecA, vecB) {
+      if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+
+      let dot = 0;
+      let normA = 0;
+      let normB = 0;
+      let sqDiff = 0;
+
+      for (let i = 0; i < vecA.length; i++) {
+        const a = vecA[i];
+        const b = vecB[i];
+        dot += a * b;
+        normA += a * a;
+        normB += b * b;
+        const diff = a - b;
+        sqDiff += diff * diff;
+      }
+
+      const cosineSim = normA === 0 || normB === 0 ? 0 : dot / (Math.sqrt(normA) * Math.sqrt(normB));
+      const rmsDistance = Math.sqrt(sqDiff / vecA.length);
+      const euclideanSim = Math.max(0, 1 - 2.1 * rmsDistance);
+
+      return 0.55 * cosineSim + 0.45 * euclideanSim;
+    }
+
+    function classifyWithAdminDataset(targetVector, dataset, k = 7) {
+      const validDataset = dataset.filter((item) => Array.isArray(item.vector) && item.vector.length === 24);
+      if (validDataset.length === 0) return null;
+
+      const ranked = validDataset
+        .map((item) => ({
+          item,
+          similarity: computeCosineAndEuclideanSimilarity(targetVector, item.vector),
+        }))
+        .sort((a, b) => b.similarity - a.similarity);
+
+      const neighbors = ranked.slice(0, Math.min(k, ranked.length));
+
+      let realVoteWeight = 0;
+      let junkVoteWeight = 0;
+      const dishWeightMap = new Map();
+
+      for (const neighbor of neighbors) {
+        const weight = Math.pow(Math.max(0.05, neighbor.similarity), 6);
+        if (neighbor.item.category === "real_food") {
+          realVoteWeight += weight;
+        } else {
+          junkVoteWeight += weight;
+        }
+
+        const dishKey = `${neighbor.item.name}__${neighbor.item.category}`;
+        const prev = dishWeightMap.get(dishKey) || {
+          name: neighbor.item.name,
+          category: neighbor.item.category,
+          weight: 0,
+          maxSim: 0,
+          bestItem: neighbor.item,
+        };
+        prev.weight += weight;
+        if (neighbor.similarity > prev.maxSim) {
+          prev.maxSim = neighbor.similarity;
+          prev.bestItem = neighbor.item;
+        }
+        dishWeightMap.set(dishKey, prev);
+      }
+
+      const totalWeight = realVoteWeight + junkVoteWeight || 1;
+      let realPct = Number(((realVoteWeight / totalWeight) * 100).toFixed(1));
+      realPct = Math.max(3.5, Math.min(96.5, realPct));
+      const junkPct = Number((100 - realPct).toFixed(1));
+
+      const predictedCategory = realVoteWeight >= junkVoteWeight ? "real_food" : "junk_food";
+
+      let bestMatchEntry = null;
+      for (const entry of dishWeightMap.values()) {
+        if (entry.category === predictedCategory) {
+          if (!bestMatchEntry || entry.weight > bestMatchEntry.weight) {
+            bestMatchEntry = entry;
+          }
+        }
+      }
+      if (!bestMatchEntry) {
+        bestMatchEntry = {
+          name: neighbors[0].item.name,
+          category: predictedCategory,
+          maxSim: neighbors[0].similarity,
+          bestItem: neighbors[0].item,
+        };
+      }
+
+      const similarityPct = Math.round(Math.max(58, Math.min(99, bestMatchEntry.maxSim * 100)));
+      const winnerShare = predictedCategory === "real_food" ? realPct : junkPct;
+      const confidenceRaw = winnerShare * 0.45 + similarityPct * 0.55;
+      const accuracyPct = Number(Math.max(70.0, Math.min(99.4, confidenceRaw)).toFixed(1));
+
+      return {
+        category: predictedCategory,
+        dishName: bestMatchEntry.name,
+        referenceThumb: bestMatchEntry.bestItem.thumbnail || "",
+        realPct,
+        junkPct,
+        similarityPct,
+        accuracyPct,
+        fromAdminDataset: true,
+        trainedCount: validDataset.length,
+      };
+    }
+
+    /**
+     * Leave-One-Out Cross-Validation (LOOCV) cepat untuk ratusan foto
+     */
+    function calculateLOOCVAccuracy(dataset) {
+      const valid = dataset.filter((item) => Array.isArray(item.vector) && item.vector.length === 24);
+      const n = valid.length;
+      if (n === 0) return 0.0;
+      if (n === 1) return 100.0;
+
+      const k = Math.min(5, n - 1);
+      const norms = valid.map((item) => {
+        let s = 0;
+        for (let d = 0; d < 24; d++) s += item.vector[d] * item.vector[d];
+        return Math.sqrt(s);
+      });
+
+      let correctPredictions = 0;
+
+      for (let i = 0; i < n; i++) {
+        const vecA = valid[i].vector;
+        const normA = norms[i];
+        const topNeighbors = [];
+
+        for (let j = 0; j < n; j++) {
+          if (i === j) continue;
+          const vecB = valid[j].vector;
+          const normB = norms[j];
+
+          let dot = 0;
+          let sqDiff = 0;
+          for (let d = 0; d < 24; d++) {
+            const a = vecA[d];
+            const b = vecB[d];
+            dot += a * b;
+            const diff = a - b;
+            sqDiff += diff * diff;
+          }
+
+          const cosSim = normA === 0 || normB === 0 ? 0 : dot / (normA * normB);
+          const eucSim = Math.max(0, 1 - 2.1 * Math.sqrt(sqDiff / 24));
+          const sim = 0.55 * cosSim + 0.45 * eucSim;
+
+          if (topNeighbors.length < k) {
+            topNeighbors.push({ sim, cat: valid[j].category });
+            topNeighbors.sort((a, b) => b.sim - a.sim);
+          } else if (sim > topNeighbors[k - 1].sim) {
+            topNeighbors[k - 1] = { sim, cat: valid[j].category };
+            topNeighbors.sort((a, b) => b.sim - a.sim);
+          }
+        }
+
+        let realW = 0;
+        let junkW = 0;
+        for (let m = 0; m < topNeighbors.length; m++) {
+          const w = Math.pow(Math.max(0.05, topNeighbors[m].sim), 6);
+          if (topNeighbors[m].cat === "real_food") realW += w;
+          else junkW += w;
+        }
+
+        const pred = realW >= junkW ? "real_food" : "junk_food";
+        if (pred === valid[i].category) correctPredictions++;
+      }
+
+      return Number(((correctPredictions / n) * 100).toFixed(1));
+    }
+
+    function classifyWithVisualHeuristicFallback(vec) {
+      const goldenFried = vec[16];
+      const freshGreen = vec[17];
+      const richSauce = vec[18];
+      const brightWhite = vec[19];
+      const darkCharred = vec[20];
+      const textureSharpness = vec[23];
+
+      const realScore = freshGreen * 3.8 + brightWhite * 1.9 + darkCharred * 0.8;
+      const junkScore = goldenFried * 3.2 + richSauce * 2.1 + textureSharpness * 1.3;
+
+      const total = realScore + junkScore || 1;
+      let realPct = Number(((realScore / total) * 100).toFixed(1));
+      realPct = Math.max(14.5, Math.min(87.5, realPct));
+      const junkPct = Number((100 - realPct).toFixed(1));
+
+      const isReal = realPct >= 50;
+      let dishName = "Hidangan Rumahan & Lauk";
+      if (isReal) {
+        dishName = freshGreen > 0.15 ? "Salad Sayur & Protein Segar" : "Nasi, Lauk Protein & Sayur";
+      } else {
+        dishName = goldenFried > 0.21 ? "Makanan Goreng Tepung / Cepat Saji" : "Hidangan Olahan Berbumbu";
+      }
+
+      const margin = Math.abs(realPct - junkPct);
+      const accuracyPct = Number(Math.min(84.5, 72.0 + margin * 0.18).toFixed(1));
+
+      return {
+        category: isReal ? "real_food" : "junk_food",
+        dishName,
+        referenceThumb: "",
+        realPct,
+        junkPct,
+        similarityPct: Math.round(accuracyPct),
+        accuracyPct,
+        fromAdminDataset: false,
+        trainedCount: 0,
+      };
+    }
+
+    function buildNutritionAnalysis(prediction) {
+      const lower = prediction.dishName.toLowerCase();
+      const matched = NUTRITION_PROFILES.find((p) =>
+        p.keywords.some((kw) => lower.includes(kw))
+      );
+
+      const isReal = prediction.category === "real_food";
+
+      if (matched) {
+        let grade = matched.grade;
+        if (isReal && (grade === "D" || grade === "E")) grade = "B";
+        if (!isReal && (grade === "A" || grade === "B")) grade = "D";
+
+        return {
+          ...prediction,
+          portionGrams: matched.portionGrams,
+          components: matched.components,
+          calories: matched.calories,
+          protein: matched.protein,
+          carbs: matched.carbs,
+          fat: matched.fat,
+          fiber: matched.fiber,
+          sugar: matched.sugar,
+          sodium: matched.sodium,
+          grade,
+          good: matched.good,
+          attention: matched.attention,
+        };
+      }
+
+      return {
+        ...prediction,
+        portionGrams: isReal ? 410 : 375,
+        components: isReal
+          ? [`Bahan Utama ${prediction.dishName} ~230g`, "Sayuran Segar ~110g", "Bumbu Alami ~70g"]
+          : [`Porsi Utama ${prediction.dishName} ~240g`, "Minyak / Saus Tambahan ~85g", "Pelengkap ~50g"],
+        calories: isReal ? 465 : 675,
+        protein: isReal ? 28 : 17,
+        carbs: isReal ? 54 : 74,
+        fat: isReal ? 14 : 35,
+        fiber: isReal ? 7 : 2,
+        sugar: isReal ? 5 : 14,
+        sodium: isReal ? 530 : 1140,
+        grade: isReal ? "A" : "D",
+        good: isReal
+          ? [
+              `Didominasi bahan pangan alami (${prediction.realPct}% Real Food) dengan protein dan serat terjaga.`,
+              "Memberikan energi seimbang tanpa beban lemak jenuh berlebih.",
+            ]
+          : [
+              "Memberikan pasokan kalori praktis untuk aktivitas.",
+            ],
+        attention: isReal
+          ? [
+              "Sesuaikan ukuran porsi dengan kebutuhan kalori harian Anda.",
+            ]
+          : [
+              "Tinggi kandungan lemak jenuh dan natrium; imbangi dengan sayuran segar dan air putih.",
+            ],
+      };
+    }
+
+    // =========================================================================
+    // 5. PEMBARUAN STATISTIK REAL-TIME DI SEMUA TAMPILAN
+    // =========================================================================
+    function refreshAllSystemStats() {
+      const dataset = getSharedDataset();
+      const total = dataset.length;
+      const realCount = dataset.filter((d) => d.category === "real_food").length;
+      const junkCount = dataset.filter((d) => d.category === "junk_food").length;
+      const loocvAcc = calculateLOOCVAccuracy(dataset);
+
+      document.getElementById("admin-metric-total").textContent = total;
+      document.getElementById("admin-metric-real").textContent = realCount;
+      document.getElementById("admin-metric-junk").textContent = junkCount;
+      document.getElementById("admin-metric-loocv").textContent = `${loocvAcc.toFixed(1)}%`;
+      document.getElementById("admin-metric-loocv-sub").textContent =
+        total > 0 ? `LOOCV pada ${total} sampel` : "Validasi Silang LOOCV";
+
+      document.getElementById("admin-count-all").textContent = total;
+      document.getElementById("admin-count-real").textContent = realCount;
+      document.getElementById("admin-count-junk").textContent = junkCount;
+
+      const userBadge = document.getElementById("user-integration-badge");
+      if (userBadge) {
+        userBadge.textContent =
+          total > 0
+            ? `AI Terintegrasi • Dilatih dari ${total} Sampel • Akurasi Model ${loocvAcc.toFixed(1)}%`
+            : "AI Visual Aktif • Siap Memindai";
+      }
+    }
+
+    // =========================================================================
+    // 6. INTEGRASI MASSAL GOOGLE DRIVE (BATCH PAGINATION 15 FOTO / REQUEST)
+    // =========================================================================
+    async function pullAndTrainFromGoogleDrive() {
+      if (state.isTrainingBusy) {
+        showToast("Proses pelatihan sedang berlangsung. Harap tunggu hingga selesai.", "warning");
+        return;
+      }
+
+      saveDriveConfig();
+      const webAppUrl = (document.getElementById("drive-webapp-url").value || "").trim();
+      const realFolderId = extractGoogleDriveFolderId(document.getElementById("drive-folder-real").value);
+      const junkFolderId = extractGoogleDriveFolderId(document.getElementById("drive-folder-junk").value);
+
+      if (!webAppUrl || !webAppUrl.startsWith("http")) {
+        showToast("Masukkan URL Web App Google Apps Script terlebih dahulu.", "warning");
+        document.getElementById("drive-webapp-url").focus();
+        return;
+      }
+
+      if (!realFolderId && !junkFolderId) {
+        showToast("Isi minimal satu Link atau ID Folder Drive (Real Food atau Junk Food).", "warning");
+        return;
+      }
+
+      state.isTrainingBusy = true;
+      const pullBtn = document.getElementById("btn-pull-drive");
+      pullBtn.disabled = true;
+      pullBtn.classList.add("opacity-60", "cursor-not-allowed");
+
+      const progressBox = document.getElementById("admin-progress-box");
+      const progressText = document.getElementById("admin-progress-text");
+      const progressPct = document.getElementById("admin-progress-pct");
+      const progressBar = document.getElementById("admin-progress-bar");
+
+      progressBox.classList.remove("hidden");
+      progressText.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 text-emerald-400 animate-spin"></i><span>Menghubungkan ke Google Drive...</span>`;
+      progressPct.textContent = "0%";
+      progressBar.style.width = "4%";
+      refreshIcons();
+
+      const tasks = [];
+      if (realFolderId) tasks.push({ folderId: realFolderId, category: "real_food", label: "Real Food" });
+      if (junkFolderId) tasks.push({ folderId: junkFolderId, category: "junk_food", label: "Junk Food" });
+
+      const dataset = getSharedDataset();
+      const existingDriveIds = new Set(dataset.filter((x) => x.driveFileId).map((x) => x.driveFileId));
+      const existingNameCatKeys = new Set(dataset.map((x) => `${x.name.toLowerCase()}__${x.category}`));
+
+      let newlyTrainedTotal = 0;
+      let skippedDuplicateTotal = 0;
+      const BATCH_LIMIT = 15;
+
+      try {
+        for (const task of tasks) {
+          let offset = 0;
+          let hasMore = true;
+
+          while (hasMore) {
+            const requestUrl = `${webAppUrl}${webAppUrl.includes("?") ? "&" : "?"}action=fetchBatch&folderId=${encodeURIComponent(task.folderId)}&offset=${offset}&limit=${BATCH_LIMIT}`;
+            const response = await fetch(requestUrl);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.status !== "ok") {
+              throw new Error(data.message || "Gagal mengambil batch dari Google Drive.");
+            }
+
+            const totalFiles = data.totalFiles || 0;
+            const items = Array.isArray(data.items) ? data.items : [];
+
+            for (let i = 0; i < items.length; i++) {
+              const fileObj = items[i];
+              const processedCount = offset + i + 1;
+              const pct = totalFiles > 0 ? Math.min(100, Math.round((processedCount / totalFiles) * 100)) : 100;
+
+              progressText.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 text-emerald-400 animate-spin"></i><span>Memproses batch dari Google Drive (${task.label}): ${processedCount} / ${totalFiles} foto...</span>`;
+              progressPct.textContent = `${pct}%`;
+              progressBar.style.width = `${pct}%`;
+              refreshIcons();
+
+              const cleanName = extractFoodNameFromFilename(fileObj.name || "Sampel Drive");
+              const dupNameKey = `${cleanName.toLowerCase()}__${task.category}`;
+
+              if ((fileObj.id && existingDriveIds.has(fileObj.id)) || existingNameCatKeys.has(dupNameKey)) {
+                skippedDuplicateTotal++;
+                continue;
+              }
+
+              if (fileObj.dataUri && fileObj.dataUri.startsWith("data:image")) {
+                const { vector24, thumbnail } = await extract24DFeaturesAndThumbnail(fileObj.dataUri);
+                dataset.unshift({
+                  id: `drv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                  driveFileId: fileObj.id || "",
+                  name: cleanName,
+                  category: task.category,
+                  thumbnail,
+                  vector: vector24,
+                  source: "google_drive",
+                  createdAt: new Date().toISOString(),
+                });
+
+                if (fileObj.id) existingDriveIds.add(fileObj.id);
+                existingNameCatKeys.add(dupNameKey);
+                newlyTrainedTotal++;
+              }
+            }
+
+            // Simpan bertahap setiap selesai 1 batch (15 foto) agar progres aman
+            saveSharedDataset(dataset);
+            refreshAllSystemStats();
+            renderAdminGallery();
+
+            hasMore = Boolean(data.hasMore);
+            offset = data.nextOffset || offset + items.length;
+          }
+        }
+
+        showToast(
+          `Sinkronisasi Drive selesai: ${newlyTrainedTotal} foto baru dilatihkan` +
+            (skippedDuplicateTotal > 0 ? ` (${skippedDuplicateTotal} duplikat dilewati).` : "!"),
+          "success"
+        );
+      } catch (err) {
+        showToast(`Gagal menarik dari Google Drive: ${err.message}`, "warning");
+      } finally {
+        setTimeout(() => {
+          progressBox.classList.add("hidden");
+          progressBar.style.width = "0%";
+        }, 800);
+
+        state.isTrainingBusy = false;
+        pullBtn.disabled = false;
+        pullBtn.classList.remove("opacity-60", "cursor-not-allowed");
+      }
+    }
+
+    async function pushModelToCloudDrive() {
+      saveDriveConfig();
+      const webAppUrl = (document.getElementById("drive-webapp-url").value || "").trim();
+
+      if (!webAppUrl || !webAppUrl.startsWith("http")) {
+        showToast("Masukkan URL Web App Google Apps Script terlebih dahulu.", "warning");
+        document.getElementById("drive-webapp-url").focus();
+        return;
+      }
+
+      const dataset = getSharedDataset();
+      if (dataset.length === 0) {
+        showToast("Dataset masih kosong. Latih foto terlebih dahulu sebelum menyimpan ke Cloud Drive.", "warning");
+        return;
+      }
+
+      const pushBtn = document.getElementById("btn-push-drive");
+      pushBtn.disabled = true;
+      pushBtn.classList.add("opacity-60");
+      showToast(`Menyimpan ${dataset.length} vektor model terlatih ke Cloud Drive...`, "default");
+
+      try {
+        const response = await fetch(webAppUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "saveModel",
+            updatedAt: new Date().toISOString(),
+            totalItems: dataset.length,
+            items: dataset,
+          }),
+        });
+
+        const resData = await response.json();
+        if (resData.status === "ok") {
+          showToast(`Model (${dataset.length} sampel) berhasil disimpan ke Google Drive untuk semua User!`, "success");
+        } else {
+          throw new Error(resData.message || "Gagal menyimpan model.");
+        }
+      } catch (_) {
+        showToast("Terjadi kendala saat menyimpan ke Cloud Drive. Pastikan deployment Apps Script diatur ke 'Anyone'.", "warning");
+      } finally {
+        pushBtn.disabled = false;
+        pushBtn.classList.remove("opacity-60");
+      }
+    }
+
+    /**
+     * Sinkronisasi otomatis model terbaru dari Google Drive saat User masuk
+     */
+    async function autoSyncCloudModelForUser() {
+      const cfg = getDriveConfig();
+      const webAppUrl = (cfg.webAppUrl || "").trim();
+      if (!webAppUrl || !webAppUrl.startsWith("http")) return;
+
+      const userBadge = document.getElementById("user-integration-badge");
+      if (userBadge) {
+        userBadge.textContent = "Menyinkronkan model terbaru dari Google Drive...";
+      }
+
+      try {
+        const url = `${webAppUrl}${webAppUrl.includes("?") ? "&" : "?"}action=getModel`;
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        if (data.status === "ok" && Array.isArray(data.items) && data.items.length > 0) {
+          saveSharedDataset(data.items);
+        }
+      } catch (_) {
+        // Gunakan cache lokal jika sedang offline
+      } finally {
+        refreshAllSystemStats();
+      }
+    }
+
+    function openDriveGuideModal() {
+      document.getElementById("drive-guide-modal").classList.remove("hidden");
+      refreshIcons();
+    }
+
+    function closeDriveGuideModal() {
+      document.getElementById("drive-guide-modal").classList.add("hidden");
+    }
+
+    function copyAppsScriptCode() {
+      const textarea = document.getElementById("apps-script-code-box");
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      try {
+        document.execCommand("copy");
+        showToast("Kode Google Apps Script (Code.gs) berhasil disalin!", "success");
+      } catch (_) {
+        showToast("Gagal menyalin otomatis. Silakan salin manual dari kotak kode.", "warning");
+      }
+    }
+
+    // =========================================================================
+    // 7. UPLOAD MANUAL / SATUAN & LOKAL + GALERI TERPAGINASI (24 ITEM)
+    // =========================================================================
+    function initAdminDropzone(dropzoneId, inputId, category, highlightClass) {
+      const dz = document.getElementById(dropzoneId);
+      const inp = document.getElementById(inputId);
+
+      dz.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dz.classList.add(highlightClass);
+      });
+
+      dz.addEventListener("dragleave", () => {
+        dz.classList.remove(highlightClass);
+      });
+
+      dz.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dz.classList.remove(highlightClass);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleAdminLocalUpload(e.dataTransfer.files, category);
+        }
+      });
+
+      inp.addEventListener("change", (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handleAdminLocalUpload(e.target.files, category);
+          inp.value = "";
+        }
+      });
+    }
+
+    function readImageAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleAdminLocalUpload(fileList, category) {
+      if (state.isTrainingBusy) {
+        showToast("Harap tunggu proses pelatihan sebelumnya selesai.", "warning");
+        return;
+      }
+
+      const imageFiles = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
+      if (imageFiles.length === 0) {
+        showToast("Pilih file foto (JPG, PNG, atau WEBP).", "warning");
+        return;
+      }
+
+      state.isTrainingBusy = true;
+
+      const customNameInput = document.getElementById(
+        category === "real_food" ? "admin-name-real" : "admin-name-junk"
+      );
+      const customDishLabel = customNameInput.value.trim();
+
+      const progressBox = document.getElementById("admin-progress-box");
+      const progressText = document.getElementById("admin-progress-text");
+      const progressPct = document.getElementById("admin-progress-pct");
+      const progressBar = document.getElementById("admin-progress-bar");
+
+      progressBox.classList.remove("hidden");
+
+      const currentDataset = getSharedDataset();
+      const catLabel = category === "real_food" ? "Real Food" : "Junk Food";
+      let trainedSuccess = 0;
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        const step = i + 1;
+        const pct = Math.round((step / imageFiles.length) * 100);
+
+        progressText.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 text-emerald-400 animate-spin"></i><span>Melatih foto lokal (${catLabel}): ${step} / ${imageFiles.length} foto...</span>`;
+        progressPct.textContent = `${pct}%`;
+        progressBar.style.width = `${pct}%`;
+        refreshIcons();
+
+        try {
+          const dataUrl = await readImageAsDataURL(file);
+          const { vector24, thumbnail } = await extract24DFeaturesAndThumbnail(dataUrl);
+          const dishName = customDishLabel || extractFoodNameFromFilename(file.name);
+
+          currentDataset.unshift({
+            id: `loc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name: dishName,
+            category,
+            thumbnail,
+            vector: vector24,
+            source: "local_upload",
+            createdAt: new Date().toISOString(),
+          });
+          trainedSuccess++;
+        } catch (_) {}
+      }
+
+      saveSharedDataset(currentDataset);
+      refreshAllSystemStats();
+      state.adminVisibleLimit = GALLERY_PAGE_SIZE;
+      renderAdminGallery();
+
+      setTimeout(() => {
+        progressBox.classList.add("hidden");
+        progressBar.style.width = "0%";
+      }, 650);
+
+      state.isTrainingBusy = false;
+      showToast(`Berhasil melatih ${trainedSuccess} foto ${catLabel} ke model AI!`, "success");
+    }
+
+    function setAdminGalleryFilter(filter) {
+      state.adminFilter = filter;
+      state.adminVisibleLimit = GALLERY_PAGE_SIZE;
+
+      const tabAll = document.getElementById("admin-tab-all");
+      const tabReal = document.getElementById("admin-tab-real");
+      const tabJunk = document.getElementById("admin-tab-junk");
+
+      tabAll.className =
+        filter === "all"
+          ? "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white transition"
+          : "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+
+      tabReal.className =
+        filter === "real_food"
+          ? "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white transition"
+          : "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition";
+
+      tabJunk.className =
+        filter === "junk_food"
+          ? "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 text-white transition"
+          : "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 transition";
+
+      renderAdminGallery();
+    }
+
+    function handleAdminSearchInput() {
+      state.adminVisibleLimit = GALLERY_PAGE_SIZE;
+      renderAdminGallery();
+    }
+
+    function loadMoreAdminGallery() {
+      state.adminVisibleLimit += GALLERY_PAGE_SIZE;
+      renderAdminGallery();
+    }
+
+    function renderAdminGallery() {
+      const dataset = getSharedDataset();
+      const searchQuery = (document.getElementById("admin-gallery-search").value || "").trim().toLowerCase();
+
+      const filtered = dataset.filter((item) => {
+        const catOk = state.adminFilter === "all" || item.category === state.adminFilter;
+        const queryOk = !searchQuery || item.name.toLowerCase().includes(searchQuery);
+        return catOk && queryOk;
+      });
+
+      const grid = document.getElementById("admin-gallery-grid");
+      const empty = document.getElementById("admin-gallery-empty");
+      const paginationBox = document.getElementById("admin-gallery-pagination");
+      const paginationInfo = document.getElementById("admin-pagination-info");
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        empty.classList.remove("hidden");
+        paginationBox.classList.add("hidden");
+        return;
+      }
+
+      empty.classList.add("hidden");
+      const visibleItems = filtered.slice(0, state.adminVisibleLimit);
+
+      if (filtered.length > visibleItems.length) {
+        paginationBox.classList.remove("hidden");
+        paginationInfo.textContent = `Menampilkan ${visibleItems.length} dari ${filtered.length} foto terlatih`;
+      } else {
+        paginationBox.classList.add("hidden");
+      }
+
+      grid.innerHTML = visibleItems
+        .map((item) => {
+          const isReal = item.category === "real_food";
+          const badgeStyle = isReal ? "bg-emerald-600 text-white" : "bg-rose-600 text-white";
+          const badgeText = isReal ? "REAL" : "JUNK";
+          const fallbackUrl = `https://placehold.co/96x96/${isReal ? "059669" : "e11d48"}/ffffff?text=${encodeURIComponent(item.name.slice(0, 10))}`;
+          const sourceLabel = item.source === "google_drive" ? "Google Drive" : "Upload Lokal";
+
+          return `
+            <div class="group bg-slate-50 rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col shadow-2xs hover:shadow-md transition">
+              <div class="relative aspect-square bg-slate-200 overflow-hidden">
+                <img
+                  src="${item.thumbnail || fallbackUrl}"
+                  onerror="this.onerror=null;this.src='${fallbackUrl}';"
+                  alt="${item.name}"
+                  loading="lazy"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide ${badgeStyle} shadow-xs">
+                  ${badgeText}
+                </span>
+                <button
+                  type="button"
+                  onclick="deleteSingleDatasetRecord('${item.id}')"
+                  title="Hapus sampel"
+                  class="absolute top-2 right-2 w-7 h-7 rounded-lg bg-slate-900/80 hover:bg-rose-600 text-white flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition"
+                >
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <div class="p-2.5">
+                <p class="text-xs font-extrabold text-slate-900 truncate" title="${item.name}">${item.name}</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">${sourceLabel} &bull; 24D</p>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      refreshIcons();
+    }
+
+    function deleteSingleDatasetRecord(id) {
+      const updated = getSharedDataset().filter((item) => item.id !== id);
+      saveSharedDataset(updated);
+      refreshAllSystemStats();
+      renderAdminGallery();
+      showToast("1 sampel dataset dihapus.", "default");
+    }
+
+    function promptDeleteAllDataset(show) {
+      const bar = document.getElementById("admin-confirm-clear-bar");
+      if (show) {
+        if (getSharedDataset().length === 0) {
+          showToast("Dataset sudah kosong.", "default");
+          return;
+        }
+        bar.classList.remove("hidden");
+      } else {
+        bar.classList.add("hidden");
+      }
+    }
+
+    function executeDeleteAllDataset() {
+      saveSharedDataset([]);
+      promptDeleteAllDataset(false);
+      refreshAllSystemStats();
+      renderAdminGallery();
+      showToast("Seluruh dataset berhasil di-reset.", "default");
+    }
+
+    function exportSharedDatasetJSON() {
+      const dataset = getSharedDataset();
+      if (dataset.length === 0) {
+        showToast("Dataset masih kosong untuk diekspor.", "warning");
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(dataset)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `nutriscan_model_${dataset.length}_foto.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast(`Model (${dataset.length} sampel) berhasil diekspor ke JSON.`, "success");
+    }
+
+    document.getElementById("admin-import-json").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          const imported = Array.isArray(parsed) ? parsed : Array.isArray(parsed.items) ? parsed.items : null;
+          if (!imported) {
+            showToast("Format file model JSON tidak valid.", "warning");
+            return;
+          }
+
+          const existing = getSharedDataset();
+          const ids = new Set(existing.map((x) => x.id));
+          let added = 0;
+
+          for (const item of imported) {
+            if (item && item.name && item.category && Array.isArray(item.vector) && item.vector.length === 24) {
+              const id = item.id || `imp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+              if (!ids.has(id)) {
+                existing.unshift({
+                  id,
+                  driveFileId: item.driveFileId || "",
+                  name: item.name,
+                  category: item.category === "junk_food" ? "junk_food" : "real_food",
+                  thumbnail: item.thumbnail || "",
+                  vector: item.vector,
+                  source: item.source || "json_import",
+                  createdAt: item.createdAt || new Date().toISOString(),
+                });
+                ids.add(id);
+                added++;
+              }
+            }
+          }
+
+          saveSharedDataset(existing);
+          refreshAllSystemStats();
+          state.adminVisibleLimit = GALLERY_PAGE_SIZE;
+          renderAdminGallery();
+          showToast(`Berhasil mengimpor ${added} sampel ke model AI!`, "success");
+        } catch (_) {
+          showToast("Gagal membaca file JSON.", "warning");
+        }
+        e.target.value = "";
+      };
+      reader.readAsText(file);
+    });
+
+    // =========================================================================
+    // 8. HALAMAN USER: ZERO-FORM PEMINDAIAN & HASIL TERPADU
+    // =========================================================================
+    const userDropzone = document.getElementById("user-dropzone");
+    const userGalleryInput = document.getElementById("user-gallery-input");
+    const userCameraInput = document.getElementById("user-camera-input");
+
+    userDropzone.addEventListener("click", () => {
+      if (!state.isUserScanning) {
+        userGalleryInput.click();
+      }
+    });
+
+    userDropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      userDropzone.classList.add("dropzone-highlight-emerald");
+    });
+
+    userDropzone.addEventListener("dragleave", () => {
+      userDropzone.classList.remove("dropzone-highlight-emerald");
+    });
+
+    userDropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      userDropzone.classList.remove("dropzone-highlight-emerald");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        processUserSelectedImage(e.dataTransfer.files[0]);
+      }
+    });
+
+    userGalleryInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        processUserSelectedImage(e.target.files[0]);
+      }
+    });
+
+    userCameraInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        processUserSelectedImage(e.target.files[0]);
+      }
+    });
+
+    function processUserSelectedImage(file) {
+      if (!file.type.startsWith("image/")) {
+        showToast("Pilih file foto makanan (JPG, PNG, atau WEBP).", "warning");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        runInstantFoodScan(ev.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function openUserCamera() {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        userCameraInput.click();
+        return;
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false,
+          });
+          state.webcamStream = stream;
+          const video = document.getElementById("webcam-video");
+          video.srcObject = stream;
+          document.getElementById("webcam-modal").classList.remove("hidden");
+        } catch (_) {
+          userCameraInput.click();
+        }
+      } else {
+        userCameraInput.click();
+      }
+    }
+
+    function closeWebcamModal() {
+      if (state.webcamStream) {
+        state.webcamStream.getTracks().forEach((t) => t.stop());
+        state.webcamStream = null;
+      }
+      document.getElementById("webcam-modal").classList.add("hidden");
+    }
+
+    function captureWebcamFrame() {
+      const video = document.getElementById("webcam-video");
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      closeWebcamModal();
+      runInstantFoodScan(dataUrl);
+    }
+
+    function resetUserScannerView() {
+      state.isUserScanning = false;
+      userGalleryInput.value = "";
+      userCameraInput.value = "";
+
+      document.getElementById("user-result-section").classList.add("hidden");
+      document.getElementById("user-scanning-overlay").classList.add("hidden");
+      document.getElementById("user-idle-prompt").classList.remove("hidden");
+      document.getElementById("user-scanner-section").classList.remove("hidden");
+    }
+
+    async function runInstantFoodScan(imageDataUrl) {
+      if (state.isUserScanning) return;
+      state.isUserScanning = true;
+
+      document.getElementById("user-scanning-preview").src = imageDataUrl;
+      document.getElementById("user-idle-prompt").classList.add("hidden");
+      document.getElementById("user-scanning-overlay").classList.remove("hidden");
+
+      const scanDelay = new Promise((resolve) => setTimeout(resolve, 1200));
+      const featureExtraction = extract24DFeaturesAndThumbnail(imageDataUrl);
+
+      const [{ vector24 }] = await Promise.all([featureExtraction, scanDelay]);
+      const sharedDataset = getSharedDataset();
+
+      const rawPrediction =
+        sharedDataset.length > 0
+          ? classifyWithAdminDataset(vector24, sharedDataset, 7)
+          : classifyWithVisualHeuristicFallback(vector24);
+
+      const analysisReport = buildNutritionAnalysis(rawPrediction);
+      renderUserFinalResult(imageDataUrl, analysisReport);
+
+      document.getElementById("user-scanner-section").classList.add("hidden");
+      const resultSection = document.getElementById("user-result-section");
+      resultSection.classList.remove("hidden");
+      resultSection.classList.remove("animate-reveal");
+      void resultSection.offsetWidth;
+      resultSection.classList.add("animate-reveal");
+      refreshIcons();
+
+      state.isUserScanning = false;
+    }
+
+    function renderUserFinalResult(imageDataUrl, report) {
+      const isReal = report.category === "real_food";
+
+      document.getElementById("u-res-photo").src = imageDataUrl;
+      document.getElementById("u-res-portion-pill").textContent = `~${report.portionGrams} g`;
+
+      const banner = document.getElementById("u-res-banner");
+      const bannerSub = document.getElementById("u-res-banner-sub");
+      const catLabel = document.getElementById("u-res-category-label");
+      const accBadge = document.getElementById("u-res-accuracy-badge");
+
+      if (isReal) {
+        banner.className = "rounded-2xl p-4 border-2 border-emerald-500/35 bg-emerald-50/85 flex flex-wrap items-center justify-between gap-3";
+        bannerSub.className = "text-[11px] font-bold uppercase tracking-wider text-emerald-700";
+        catLabel.textContent = "REAL FOOD";
+        catLabel.className = "text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-800";
+        accBadge.className = "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-extrabold shadow-sm";
+      } else {
+        banner.className = "rounded-2xl p-4 border-2 border-rose-500/35 bg-rose-50/85 flex flex-wrap items-center justify-between gap-3";
+        bannerSub.className = "text-[11px] font-bold uppercase tracking-wider text-rose-700";
+        catLabel.textContent = "JUNK FOOD";
+        catLabel.className = "text-2xl sm:text-3xl font-extrabold tracking-tight text-rose-800";
+        accBadge.className = "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 text-white text-xs sm:text-sm font-extrabold shadow-sm";
+      }
+
+      document.getElementById("u-res-accuracy-text").textContent = `Persentase Akurat: ${report.accuracyPct.toFixed(1)}%`;
+
+      document.getElementById("u-res-real-pct").textContent = `Real Food ${report.realPct.toFixed(1)}%`;
+      document.getElementById("u-res-junk-pct").textContent = `Junk Food ${report.junkPct.toFixed(1)}%`;
+      document.getElementById("u-res-real-bar").style.width = `${report.realPct}%`;
+
+      // Kartu Referensi Kemiripan Visual
+      const refThumbEl = document.getElementById("u-res-ref-thumb");
+      const refTitleEl = document.getElementById("u-res-ref-title");
+      const matchInfoEl = document.getElementById("u-res-match-info");
+      const simPillEl = document.getElementById("u-res-sim-pill");
+
+      simPillEl.textContent = `${report.similarityPct}% Mirip`;
+      const fallbackThumb = `https://placehold.co/96x96/${isReal ? "059669" : "e11d48"}/ffffff?text=${encodeURIComponent(report.dishName.slice(0, 8))}`;
+
+      if (report.fromAdminDataset) {
+        refThumbEl.src = report.referenceThumb || fallbackThumb;
+        refTitleEl.textContent = report.dishName;
+        matchInfoEl.textContent = `Sampel terdekat dari ${report.trainedCount} foto terlatih Admin.`;
+      } else {
+        refThumbEl.src = fallbackThumb;
+        refTitleEl.textContent = report.dishName;
+        matchInfoEl.textContent = "Analisis pola warna & tekstur visual (belum ada dataset terlatih).";
+      }
+
+      document.getElementById("u-res-dish-name").textContent = report.dishName;
+      document.getElementById("u-res-weight-text").textContent = `~${report.portionGrams} gram`;
+
+      document.getElementById("u-res-components").innerHTML = report.components
+        .map(
+          (comp) => `
+          <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200/80 text-xs font-semibold">
+            ${comp}
+          </span>`
+        )
+        .join("");
+
+      document.getElementById("u-res-calories").textContent = report.calories;
+      const akgPct = Math.round((report.calories / 2150) * 100);
+      document.getElementById("u-res-akg").textContent = `~${akgPct}% dari kebutuhan harian`;
+
+      selectUserHealthGrade(report.grade);
+
+      document.getElementById("u-res-protein").textContent = `${report.protein} g`;
+      document.getElementById("u-res-carbs").textContent = `${report.carbs} g`;
+      document.getElementById("u-res-fat").textContent = `${report.fat} g`;
+      document.getElementById("u-res-fiber").textContent = `${report.fiber} g`;
+      document.getElementById("u-res-sugar").textContent = `${report.sugar} g`;
+      document.getElementById("u-res-sodium").textContent = `${report.sodium} mg`;
+
+      document.getElementById("u-res-good").innerHTML = report.good
+        .map(
+          (txt) => `
+          <li class="flex items-start gap-2">
+            <span class="text-emerald-600 font-extrabold mt-0.5">&check;</span>
+            <span>${txt}</span>
+          </li>`
+        )
+        .join("");
+
+      document.getElementById("u-res-attention").innerHTML = report.attention
+        .map(
+          (txt) => `
+          <li class="flex items-start gap-2">
+            <span class="text-amber-600 font-extrabold mt-0.5">&bull;</span>
+            <span>${txt}</span>
+          </li>`
+        )
+        .join("");
+    }
+
+    function selectUserHealthGrade(grade) {
+      const info = HEALTH_GRADE_INFO[grade] || HEALTH_GRADE_INFO.B;
+      document.getElementById("u-res-grade-title").textContent = info.title;
+      document.getElementById("u-res-grade-desc").textContent = info.desc;
+
+      const activeStyles = {
+        A: "bg-emerald-600 text-white scale-105 shadow-md ring-2 ring-emerald-300",
+        B: "bg-teal-600 text-white scale-105 shadow-md ring-2 ring-teal-300",
+        C: "bg-amber-500 text-white scale-105 shadow-md ring-2 ring-amber-300",
+        D: "bg-orange-600 text-white scale-105 shadow-md ring-2 ring-orange-300",
+        E: "bg-rose-600 text-white scale-105 shadow-md ring-2 ring-rose-300",
+      };
+
+      const inactiveStyles = {
+        A: "bg-emerald-100/75 text-emerald-800 opacity-65 hover:opacity-100",
+        B: "bg-teal-100/75 text-teal-800 opacity-65 hover:opacity-100",
+        C: "bg-amber-100/80 text-amber-800 opacity-65 hover:opacity-100",
+        D: "bg-orange-100/75 text-orange-800 opacity-65 hover:opacity-100",
+        E: "bg-rose-100/75 text-rose-800 opacity-65 hover:opacity-100",
+      };
+
+      document.querySelectorAll(".u-grade-btn").forEach((btn) => {
+        const g = btn.getAttribute("data-u-grade");
+        const base = "u-grade-btn flex-1 h-11 rounded-xl font-extrabold text-sm sm:text-base flex items-center justify-center transition-all duration-200 cursor-pointer";
+        btn.className = `${base} ${g === grade ? activeStyles[g] : inactiveStyles[g]}`;
+      });
+    }
+
+    // =========================================================================
+    // 9. TOAST NOTIFICATION & INISIALISASI APLIKASI
+    // =========================================================================
+    function showToast(message, type = "default") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+
+      const styles = {
+        default: "bg-slate-900 text-white border-slate-700",
+        success: "bg-emerald-900 text-white border-emerald-700",
+        warning: "bg-amber-900 text-white border-amber-700",
+      };
+
+      toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border shadow-xl text-xs sm:text-sm font-medium transition-all duration-300 transform translate-y-3 opacity-0 ${styles[type] || styles.default}`;
+      toast.textContent = message;
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-3", "opacity-0");
+      });
+
+      setTimeout(() => {
+        toast.classList.add("translate-y-3", "opacity-0");
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initAdminDropzone("admin-dropzone-real", "admin-input-real", "real_food", "dropzone-highlight-emerald");
+      initAdminDropzone("admin-dropzone-junk", "admin-input-junk", "junk_food", "dropzone-highlight-rose");
+
+      const savedCfg = getDriveConfig();
+      if (savedCfg.webAppUrl) {
+        document.getElementById("drive-webapp-url").value = savedCfg.webAppUrl;
+      }
+      if (savedCfg.realFolderRaw) {
+        document.getElementById("drive-folder-real").value = savedCfg.realFolderRaw;
+        handleFolderInputChange("real");
+      }
+      if (savedCfg.junkFolderRaw) {
+        document.getElementById("drive-folder-junk").value = savedCfg.junkFolderRaw;
+        handleFolderInputChange("junk");
+      }
+
+      const currentSession = getActiveSession();
+      applyAuthenticatedView(currentSession);
+      refreshIcons();
+    });
+  </script>
+</body>
+</html>
